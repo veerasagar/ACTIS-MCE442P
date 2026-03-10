@@ -45,9 +45,9 @@ FL_TRUST_EPSILON = 1e-6     # ε in τ_i = 1/(L_i + ε) to avoid division by zer
 
 IDS_HIDDEN_LAYERS = [128, 64, 32]   # MLP hidden layer sizes
 IDS_DROPOUT = 0.3
-IDS_INPUT_DIM = 53                   # NF-CSE-CIC-IDS2018-v3 has 53 features
-IDS_GOTHAM_INPUT_DIM = 23            # Gotham 2025 has 23 features
-IDS_COMMON_DIM = 23                  # Aligned feature space (shared subset)
+IDS_INPUT_DIM = 41                   # 43 cols - Label - Attack = 41 numeric features
+IDS_GOTHAM_INPUT_DIM = 41            # Same 41 features (both are NetFlow v2)
+IDS_COMMON_DIM = 41                  # Identical feature space — no alignment needed!
 
 # ─── Differential Privacy ───────────────────────────────────────────────────
 
@@ -83,31 +83,34 @@ ZMQ_DASHBOARD_PORT = 5556
 
 COMPANY_CONFIG = {
     "A": {
-        "dataset": "nf-cse-cic-ids2018-v3",
+        "dataset": "nf-cse-cic-ids2018-v2",
+        "file": "NF-CSE-CIC-IDS2018-V2.parquet",
         "partition": 0,
-        "description": "Enterprise network — partition 1",
+        "description": "Enterprise network — partition 1 (DDoS, DoS, Brute Force, Web, Bot)",
     },
     "B": {
-        "dataset": "nf-cse-cic-ids2018-v3",
+        "dataset": "nf-cse-cic-ids2018-v2",
+        "file": "NF-CSE-CIC-IDS2018-V2.parquet",
         "partition": 1,
-        "description": "Enterprise network — partition 2",
+        "description": "Enterprise network — partition 2 (DDoS, DoS, Brute Force, Web, Bot)",
     },
     "C": {
-        "dataset": "gotham-2025",
+        "dataset": "nf-bot-iot-v2",
+        "file": "NF-BoT-IoT-V2.parquet",
         "partition": 0,
-        "description": "IoT + C&C network traffic",
+        "description": "IoT botnet traffic (DDoS, DoS, Reconnaissance, Theft)",
     },
 }
 
 # ─── Dataset Download URLs ──────────────────────────────────────────────────
 
 DATASET_URLS = {
-    "nf-cse-cic-ids2018-v3": {
+    "nf-cse-cic-ids2018-v2": {
         "source": "kaggle",
-        "identifier": "dhoogla/nfcsecicids2018v3",
+        "identifier": "dhoogla/nfcsecicids2018v2",
     },
-    "gotham-2025": {
+    "nf-bot-iot-v2": {
         "source": "kaggle",
-        "identifier": "emilymuller/gotham-network-intrusion-detection-dataset",
+        "identifier": "dhoogla/nfbotiotv2",
     },
 }
