@@ -48,12 +48,16 @@ class IDSTrainer:
         device: str = None,
         learning_rate: float = FL_LEARNING_RATE,
         batch_size: int = FL_BATCH_SIZE,
+        class_weights: "torch.Tensor" = None,
     ):
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         self.model = model.to(self.device)
         self.batch_size = batch_size
 
-        self.criterion = nn.CrossEntropyLoss()
+        # Use class-weighted loss if weights provided (for non-IID FL)
+        if class_weights is not None:
+            class_weights = class_weights.to(self.device)
+        self.criterion = nn.CrossEntropyLoss(weight=class_weights)
         self.optimizer = torch.optim.Adam(
             self.model.parameters(), lr=learning_rate, weight_decay=1e-5
         )
@@ -175,8 +179,16 @@ class IDSTrainer:
         }
 
         if class_names:
+            # Use labels param so it doesn't break when not all classes appear
+            unique_labels = sorted(set(all_labels) | set(all_preds))
+            # Only use class_names for labels that actually exist
+            label_names = [class_names[i] if i < len(class_names) else str(i)
+                           for i in unique_labels]
             results["classification_report"] = classification_report(
-                all_labels, all_preds, target_names=class_names, zero_division=0
+                all_labels, all_preds,
+                labels=unique_labels,
+                target_names=label_names,
+                zero_division=0,
             )
 
         return results

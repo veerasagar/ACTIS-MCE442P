@@ -35,6 +35,7 @@ class Preprocessor:
         self.scaler = StandardScaler()
         self.label_encoder = LabelEncoder()
         self._is_fitted = False
+        self._labels_preset = False
 
     # ─── Cleaning ───────────────────────────────────────────────────────
 
@@ -76,11 +77,37 @@ class Preprocessor:
             raise RuntimeError("Scaler not fitted. Call fit_transform first.")
         return self.scaler.transform(X)
 
-    # ─── Label Encoding ─────────────────────────────────────────────────
+    def set_unified_labels(self, all_labels: list):
+        """
+        Pre-fit the label encoder with a unified set of labels.
+        This ensures all clients map the same string to the same integer.
+        
+        Args:
+            all_labels: sorted list of ALL possible label strings across all clients
+        """
+        self.label_encoder.fit(sorted(all_labels))
+        self._labels_preset = True
 
     def encode_labels(self, labels: pd.Series) -> np.ndarray:
-        """Encode string labels to integers."""
+        """Encode string labels to integers (using pre-fitted or auto-fitted encoder)."""
+        if self._labels_preset:
+            return self.label_encoder.transform(labels)
         return self.label_encoder.fit_transform(labels)
+
+    def compute_class_weights(self, y: np.ndarray) -> np.ndarray:
+        """
+        Compute inverse-frequency class weights for imbalanced data.
+        Returns a weight per class (indexed by class ID).
+        """
+        from collections import Counter
+        counts = Counter(y)
+        n_samples = len(y)
+        n_classes = self.num_classes
+        weights = np.ones(n_classes, dtype=np.float32)
+        for cls_id, count in counts.items():
+            if cls_id < n_classes:
+                weights[cls_id] = n_samples / (n_classes * count)
+        return weights
 
     def decode_labels(self, encoded: np.ndarray) -> np.ndarray:
         """Decode integer labels back to strings."""
