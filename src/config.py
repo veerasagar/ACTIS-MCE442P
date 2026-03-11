@@ -15,8 +15,8 @@ load_dotenv()
 
 PROJECT_ROOT = Path(__file__).parent.parent
 DATA_DIR = PROJECT_ROOT / "data"
-DATASET_IDS2018_DIR = DATA_DIR / "nf-cse-cic-ids2018-v3"
-DATASET_GOTHAM_DIR = DATA_DIR / "gotham-2025"
+DATASET_IDS2018_DIR = DATA_DIR / "nf-cse-cic-ids2018-v2"
+DATASET_BOTIOT_DIR = DATA_DIR / "nf-bot-iot-v2"
 MODELS_DIR = PROJECT_ROOT / "models"
 CHROMA_DIR = PROJECT_ROOT / "chromadb_store"
 
@@ -46,8 +46,6 @@ FL_TRUST_EPSILON = 1e-6     # ε in τ_i = 1/(L_i + ε) to avoid division by zer
 IDS_HIDDEN_LAYERS = [128, 64, 32]   # MLP hidden layer sizes
 IDS_DROPOUT = 0.3
 IDS_INPUT_DIM = 41                   # 43 cols - Label - Attack = 41 numeric features
-IDS_GOTHAM_INPUT_DIM = 41            # Same 41 features (both are NetFlow v2)
-IDS_COMMON_DIM = 41                  # Identical feature space — no alignment needed!
 
 # ─── Differential Privacy ───────────────────────────────────────────────────
 

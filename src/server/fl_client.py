@@ -68,6 +68,8 @@ class FLClient:
             weight_tensor = torch.tensor(class_weights, dtype=torch.float32)
 
         # Create model and trainer
+        # NOTE: No class_weights in FL training — it causes gradient
+        # instability across non-IID clients. Use FedProx instead.
         self.model = IDSModel(
             input_dim=X_train.shape[1],
             hidden_layers=IDS_HIDDEN_LAYERS,
@@ -78,7 +80,7 @@ class FLClient:
             model=self.model,
             learning_rate=FL_LEARNING_RATE,
             batch_size=FL_BATCH_SIZE,
-            class_weights=weight_tensor,
+            fedprox_mu=0.1,  # Proximal term to prevent client drift
         )
 
     def get_weights(self) -> list:
@@ -105,6 +107,9 @@ class FLClient:
         # Apply global weights if provided
         if global_weights is not None:
             self.set_weights(global_weights)
+
+        # Snapshot weights for FedProx reference before local training
+        self.trainer.set_global_weights_ref()
 
         # Train locally
         history = self.trainer.train(

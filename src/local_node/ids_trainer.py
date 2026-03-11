@@ -49,12 +49,15 @@ class IDSTrainer:
         learning_rate: float = FL_LEARNING_RATE,
         batch_size: int = FL_BATCH_SIZE,
         class_weights: "torch.Tensor" = None,
+        fedprox_mu: float = 0.0,
     ):
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         self.model = model.to(self.device)
         self.batch_size = batch_size
+        self.fedprox_mu = fedprox_mu
+        self._global_params_ref = None  # Snapshot of global weights for FedProx
 
-        # Use class-weighted loss if weights provided (for non-IID FL)
+        # Use class-weighted loss if weights provided
         if class_weights is not None:
             class_weights = class_weights.to(self.device)
         self.criterion = nn.CrossEntropyLoss(weight=class_weights)
@@ -64,6 +67,12 @@ class IDSTrainer:
         self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
             self.optimizer, mode="min", patience=3, factor=0.5
         )
+
+    def set_global_weights_ref(self):
+        """Snapshot current model weights as the FedProx reference point."""
+        self._global_params_ref = [
+            p.clone().detach() for p in self.model.parameters()
+        ]
 
     # ─── Data Loading ───────────────────────────────────────────────────
 
@@ -114,6 +123,13 @@ class IDSTrainer:
                 # Forward
                 logits = self.model(X_batch)
                 loss = self.criterion(logits, y_batch)
+
+                # FedProx: add proximal term μ/2 * ||w - w_global||²
+                if self.fedprox_mu > 0 and self._global_params_ref is not None:
+                    prox_term = 0.0
+                    for p, g in zip(self.model.parameters(), self._global_params_ref):
+                        prox_term += ((p - g) ** 2).sum()
+                    loss = loss + (self.fedprox_mu / 2.0) * prox_term
 
                 # Backward
                 self.optimizer.zero_grad()

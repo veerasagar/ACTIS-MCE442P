@@ -28,8 +28,8 @@ MANIFEST
 implementation_plan.md
 
 # Fed-Intel specific
-data/nf-cse-cic-ids2018-v3/
-data/gotham-2025/
+data/nf-cse-cic-ids2018-v2/
+data/nf-bot-iot-v2/
 models/
 chromadb_store/
 .env

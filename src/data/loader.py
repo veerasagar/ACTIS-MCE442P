@@ -23,7 +23,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.config import (
     DATASET_IDS2018_DIR,
-    DATASET_GOTHAM_DIR,
+    DATASET_BOTIOT_DIR,
     COMPANY_CONFIG,
 )
 
@@ -73,7 +73,7 @@ class FedIntelDataLoader:
 
     def __init__(self):
         self.ids2018_dir = DATASET_IDS2018_DIR
-        self.gotham_dir = DATASET_GOTHAM_DIR
+        self.botiot_dir = DATASET_BOTIOT_DIR
         self._ids2018_df: Optional[pd.DataFrame] = None
         self._botiot_df: Optional[pd.DataFrame] = None
 
@@ -108,7 +108,7 @@ class FedIntelDataLoader:
         """Load NF-BoT-IoT-v2 dataset."""
         if self._botiot_df is None:
             self._botiot_df = self._load_parquet(
-                self.gotham_dir, "NF-BoT-IoT-v2"
+                self.botiot_dir, "NF-BoT-IoT-v2"
             )
         return self._botiot_df
 

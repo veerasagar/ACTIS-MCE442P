@@ -103,27 +103,40 @@ class FLServer:
         self, client_results: List[Tuple[str, list, float, int]]
     ) -> Dict:
         """
-        Trust-aware FedAvg: aggregation weights are influenced by loss.
-        Lower loss → higher trust → more influence on global model.
+        Trust-aware FedAvg with clamped weights.
 
-        τ_i = 1 / (L_i + ε)
-        w_i = (τ_i * n_i) / Σ(τ_j * n_j)
+        Blends sample-based FedAvg (stability) with trust-based weighting
+        (performance), preventing any single client from dominating.
+
+        α = 0.5 blend factor: w_i = α * (n_i/N) + (1-α) * (τ_i/Στ)
+        Then clamp: max weight per client = 1/K + 0.15 (K = num clients)
         """
-        # Compute trust scores
+        n_clients = len(client_results)
+        total_samples = sum(n for _, _, _, n in client_results)
+
+        # Compute trust scores: τ_i = 1 / (L_i + ε)
         for cid, _, loss, _ in client_results:
             self.trust_scores[cid] = 1.0 / (loss + FL_TRUST_EPSILON)
 
-        # Compute aggregation weights
-        weighted_scores = [
-            (cid, self.trust_scores[cid] * n)
-            for cid, _, _, n in client_results
-        ]
-        total_weighted = sum(ws for _, ws in weighted_scores)
-        agg_weights = {cid: ws / total_weighted for cid, ws in weighted_scores}
+        total_trust = sum(self.trust_scores[cid] for cid, _, _, _ in client_results)
+
+        # Blend: 50% sample-weighted + 50% trust-weighted
+        alpha = 0.5
+        raw_weights = {}
+        for cid, _, _, n in client_results:
+            sample_w = n / total_samples
+            trust_w = self.trust_scores[cid] / total_trust
+            raw_weights[cid] = alpha * sample_w + (1 - alpha) * trust_w
+
+        # Clamp: no client gets more than (1/K + 0.15)
+        max_w = (1.0 / n_clients) + 0.15
+        clamped = {cid: min(w, max_w) for cid, w in raw_weights.items()}
+        total_clamped = sum(clamped.values())
+        agg_weights = {cid: w / total_clamped for cid, w in clamped.items()}
 
         # Weighted average of model weights
         aggregated = []
-        for i in range(len(client_results[0][1])):  # For each weight tensor
+        for i in range(len(client_results[0][1])):
             weighted_sum = sum(
                 weights[i] * agg_weights[cid]
                 for cid, weights, _, _ in client_results
@@ -139,17 +152,19 @@ class FLServer:
             "avg_loss": avg_loss,
             "trust_scores": dict(self.trust_scores),
             "aggregation_weights": agg_weights,
-            "total_samples": sum(n for _, _, _, n in client_results),
+            "total_samples": total_samples,
             "client_losses": {cid: loss for cid, _, loss, _ in client_results},
         }
         self.round_history.append(round_info)
 
         # Log
         trust_str = " | ".join(
-            f"{cid}: τ={self.trust_scores[cid]:.1f}, w={agg_weights[cid]:.3f}"
+            "{}:w={:.3f}".format(cid, agg_weights[cid])
             for cid in sorted(agg_weights.keys())
         )
-        console.print(f"  [green]Aggregated[/green] ({strategy_label(avg_loss)}): {trust_str}")
+        console.print(
+            f"  [green]Aggregated[/green] ({strategy_label(avg_loss)}): {trust_str}"
+        )
 
         return round_info
 
