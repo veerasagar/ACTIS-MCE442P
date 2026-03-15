@@ -25,8 +25,7 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
-implementation_plan.md
-task.md
+ref/
 # Fed-Intel specific
 data/nf-cse-cic-ids2018-v2/
 data/nf-bot-iot-v2/
