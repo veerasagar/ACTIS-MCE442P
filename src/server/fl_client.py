@@ -62,14 +62,23 @@ class FLClient:
         self.class_names = class_names
         self.n_samples = len(X_train)
 
-        # Convert class weights to tensor
+        # Auto-compute class weights for imbalanced clients
         weight_tensor = None
         if class_weights is not None:
             weight_tensor = torch.tensor(class_weights, dtype=torch.float32)
+        else:
+            # Inverse-frequency weighting for class imbalance
+            classes, counts = np.unique(y_train, return_counts=True)
+            n_classes = num_classes
+            freq = np.zeros(n_classes)
+            for c, cnt in zip(classes, counts):
+                freq[c] = cnt
+            freq = np.maximum(freq, 1)  # Avoid div by zero for absent classes
+            inv_freq = 1.0 / freq
+            inv_freq = inv_freq / inv_freq.sum() * n_classes  # Normalize to mean=1
+            weight_tensor = torch.tensor(inv_freq, dtype=torch.float32)
 
         # Create model and trainer
-        # NOTE: No class_weights in FL training — it causes gradient
-        # instability across non-IID clients. Use FedProx instead.
         self.model = IDSModel(
             input_dim=X_train.shape[1],
             hidden_layers=IDS_HIDDEN_LAYERS,
@@ -80,7 +89,8 @@ class FLClient:
             model=self.model,
             learning_rate=FL_LEARNING_RATE,
             batch_size=FL_BATCH_SIZE,
-            fedprox_mu=0.1,  # Proximal term to prevent client drift
+            class_weights=weight_tensor,
+            fedprox_mu=0.01,  # Lower μ — prevents over-constraining non-IID clients
         )
 
     def get_weights(self) -> list:
