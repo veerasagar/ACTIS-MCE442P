@@ -1,23 +1,25 @@
 """
 ACTIS Zero-Day Detector
 ========================
-Detects unseen/zero-day attacks using a hybrid scoring approach:
+Detects unseen/zero-day attacks using a dual-signal approach:
 
 1. **Confidence Signal** (from Tri-LLM's ZDS):
    ZDS_conf = λ·entropy(softmax) + (1-λ)·(1 - max_confidence)
 
-2. **Feature Distance Signal** (centroid-based):
-   ZDS_dist = min distance from sample's hidden representation
-              to any known-class centroid
+2. **Reconstruction Signal** (autoencoder-based):
+   Train an autoencoder ONLY on known-class data.
+   Unseen classes → high reconstruction error (anomaly).
 
 3. **Combined Score**:
-   ZDS = α·ZDS_conf_norm + (1-α)·ZDS_dist_norm
+   ZDS = α·ZDS_conf_norm + (1-α)·ZDS_recon_norm
 
-Samples with ZDS > threshold are flagged as potential zero-day.
+The reconstruction signal is robust even when the classifier is
+confidently wrong, because unseen attack patterns live in different
+regions of the feature space that the autoencoder hasn't learned.
 
 Usage:
-    detector = ZeroDayDetector(model, unified_labels)
-    detector.fit_thresholds(X_train, y_train)
+    detector = ZeroDayDetector(model)
+    detector.fit(X_train_known, y_train_known)
     results = detector.detect(X_test)
 """
 
@@ -25,25 +27,50 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.utils.data import DataLoader, TensorDataset
 from typing import Dict, List, Optional, Tuple
 from rich.console import Console
 
 console = Console()
 
 
+class _Autoencoder(nn.Module):
+    """Compact autoencoder for reconstruction-based anomaly detection."""
+
+    def __init__(self, input_dim: int, latent_dim: int = 16):
+        super().__init__()
+        self.encoder = nn.Sequential(
+            nn.Linear(input_dim, 64),
+            nn.ReLU(),
+            nn.Linear(64, 32),
+            nn.ReLU(),
+            nn.Linear(32, latent_dim),
+        )
+        self.decoder = nn.Sequential(
+            nn.Linear(latent_dim, 32),
+            nn.ReLU(),
+            nn.Linear(32, 64),
+            nn.ReLU(),
+            nn.Linear(64, input_dim),
+        )
+
+    def forward(self, x):
+        z = self.encoder(x)
+        return self.decoder(z)
+
+
 class ZeroDayDetector:
     """
-    Hybrid zero-day attack detector combining confidence + feature distance.
+    Hybrid zero-day attack detector combining classifier confidence
+    with autoencoder reconstruction error.
 
-    Works alongside the IDS classifier:
-    - IDS produces class predictions
-    - ZeroDayDetector flags samples where the model is uncertain OR
-      where the sample is far from known class centroids in feature space
+    Two independent signals:
+    1. **Confidence**: max(softmax) and entropy from the IDS classifier
+    2. **Reconstruction**: MSE from an autoencoder trained only on known classes
 
-    Three signals:
-    1. **Max confidence**: max(softmax(logits)) — low = uncertain
-    2. **Prediction entropy**: -Σ p·log(p) — high = uncertain
-    3. **Centroid distance**: distance to nearest class centroid in penultimate layer
+    When the classifier is confidently wrong (e.g., DDoS → web_attack),
+    the reconstruction error still flags the sample as anomalous because
+    the autoencoder hasn't seen that traffic pattern during training.
     """
 
     def __init__(
@@ -57,10 +84,10 @@ class ZeroDayDetector:
     ):
         """
         Args:
-            model: trained IDS model
+            model: trained IDS classifier
             class_names: list of class label names
-            lambda_: blend for confidence vs entropy (0=confidence, 1=entropy)
-            alpha: blend for confidence-signal vs distance-signal (0=all distance, 1=all confidence)
+            lambda_: blend for confidence vs entropy (0=conf, 1=entropy)
+            alpha: blend for confidence vs reconstruction (0=recon, 1=conf)
             threshold: fixed ZDS threshold (if None, auto-calibrated)
             percentile: percentile of training ZDS for threshold
         """
@@ -71,49 +98,42 @@ class ZeroDayDetector:
         self.threshold = threshold
         self.percentile = percentile
         self.max_entropy = None
-        self.centroids = None  # Per-class centroids in hidden space
-        self.centroid_scale = None  # Normalization for distance scores
+        self.autoencoder = None
+        self.recon_scale = None  # 99th percentile of training recon errors
 
-    def _get_hidden_features(self, X: np.ndarray) -> np.ndarray:
-        """Extract penultimate layer features (before output layer)."""
-        self.model.eval()
+    def _train_autoencoder(self, X: np.ndarray, epochs: int = 30, lr: float = 1e-3):
+        """Train autoencoder on known-class data only."""
+        input_dim = X.shape[1]
+        self.autoencoder = _Autoencoder(input_dim)
+        optimizer = torch.optim.Adam(self.autoencoder.parameters(), lr=lr)
+
+        dataset = TensorDataset(torch.tensor(X, dtype=torch.float32))
+        loader = DataLoader(dataset, batch_size=256, shuffle=True)
+
+        self.autoencoder.train()
+        for epoch in range(epochs):
+            total_loss = 0
+            for (batch,) in loader:
+                recon = self.autoencoder(batch)
+                loss = F.mse_loss(recon, batch)
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+                total_loss += loss.item() * len(batch)
+
+        self.autoencoder.eval()
+
+    def _compute_recon_errors(self, X: np.ndarray) -> np.ndarray:
+        """Compute per-sample reconstruction error."""
+        self.autoencoder.eval()
         with torch.no_grad():
             X_t = torch.tensor(X, dtype=torch.float32)
-            # Forward through all layers except the last
-            hidden = X_t
-            layers = list(self.model.network)
-            for layer in layers[:-1]:  # Skip final Linear layer
-                hidden = layer(hidden)
-            return hidden.numpy()
+            recon = self.autoencoder(X_t)
+            errors = ((X_t - recon) ** 2).mean(dim=1).numpy()
+        return errors
 
-    def _compute_centroids(self, X: np.ndarray, y: np.ndarray):
-        """Compute per-class centroids from hidden features."""
-        hidden = self._get_hidden_features(X)
-        classes = np.unique(y)
-        self.centroids = {}
-        for c in classes:
-            mask = y == c
-            if mask.sum() > 0:
-                self.centroids[c] = hidden[mask].mean(axis=0)
-
-    def _compute_distance_scores(self, X: np.ndarray) -> np.ndarray:
-        """Compute min distance from each sample to any class centroid."""
-        hidden = self._get_hidden_features(X)
-        distances = np.full(len(X), float('inf'))
-        for c, centroid in self.centroids.items():
-            d = np.linalg.norm(hidden - centroid, axis=1)
-            distances = np.minimum(distances, d)
-        return distances
-
-    def _compute_scores(
-        self, X: np.ndarray, return_components: bool = False
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """
-        Compute hybrid zero-day scores.
-
-        Returns:
-            (zds_scores, max_confidences, entropies)
-        """
+    def _compute_confidence_scores(self, X: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Compute confidence-based ZDS from the IDS classifier."""
         self.model.eval()
         with torch.no_grad():
             X_t = torch.tensor(X, dtype=torch.float32)
@@ -125,7 +145,6 @@ class ZeroDayDetector:
                 all_probs.append(probs.numpy())
             probs = np.concatenate(all_probs, axis=0)
 
-        # Confidence signal
         max_conf = np.max(probs, axis=1)
         log_probs = np.log(probs + 1e-10)
         entropy = -np.sum(probs * log_probs, axis=1)
@@ -134,45 +153,47 @@ class ZeroDayDetector:
         norm_entropy = entropy / self.max_entropy
 
         zds_conf = self.lambda_ * norm_entropy + (1 - self.lambda_) * (1 - max_conf)
+        return zds_conf, max_conf, norm_entropy
 
-        # Distance signal (if centroids available)
-        if self.centroids:
-            dist_scores = self._compute_distance_scores(X)
-            # Normalize to [0, 1] using scale from training
-            if self.centroid_scale is not None:
-                norm_dist = dist_scores / self.centroid_scale
-                norm_dist = np.clip(norm_dist, 0, 1)
+    def _compute_scores(self, X: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Compute hybrid ZDS = α·confidence + (1-α)·reconstruction."""
+        zds_conf, max_conf, entropy = self._compute_confidence_scores(X)
+
+        if self.autoencoder is not None:
+            recon_errors = self._compute_recon_errors(X)
+            # Normalize reconstruction errors to [0, 1]
+            if self.recon_scale is not None and self.recon_scale > 0:
+                norm_recon = np.clip(recon_errors / self.recon_scale, 0, 1)
             else:
-                norm_dist = dist_scores / (np.max(dist_scores) + 1e-10)
+                norm_recon = recon_errors / (np.max(recon_errors) + 1e-10)
 
-            # Hybrid: α · confidence_signal + (1-α) · distance_signal
-            zds = self.alpha * zds_conf + (1 - self.alpha) * norm_dist
+            zds = self.alpha * zds_conf + (1 - self.alpha) * norm_recon
         else:
             zds = zds_conf
 
-        return zds, max_conf, norm_entropy
+        return zds, max_conf, entropy
 
     def fit_thresholds(self, X_train: np.ndarray, y_train: np.ndarray) -> float:
         """
-        Calibrate threshold and compute class centroids from training data.
+        Train autoencoder on known-class data and calibrate ZDS threshold.
 
         Returns:
             Calibrated threshold value
         """
-        # Compute centroids
-        self._compute_centroids(X_train, y_train)
+        # Train autoencoder on known-class training data
+        self._train_autoencoder(X_train, epochs=30)
 
-        # Compute distance scale from training data
-        dist_train = self._compute_distance_scores(X_train)
-        self.centroid_scale = float(np.percentile(dist_train, 99))
+        # Compute reconstruction error scale
+        recon_train = self._compute_recon_errors(X_train)
+        self.recon_scale = float(np.percentile(recon_train, 99))
 
-        # Compute ZDS on training data
-        zds, max_conf, entropy = self._compute_scores(X_train)
+        # Compute ZDS on training data and set threshold
+        zds, _, _ = self._compute_scores(X_train)
         self.threshold = float(np.percentile(zds, self.percentile))
 
         console.print(
-            "  ZDS threshold: {:.4f} (p{}), centroid_scale: {:.4f}".format(
-                self.threshold, self.percentile, self.centroid_scale
+            "  ZDS threshold: {:.4f} (p{}), recon_scale: {:.4f}".format(
+                self.threshold, self.percentile, self.recon_scale
             )
         )
 
@@ -181,7 +202,7 @@ class ZeroDayDetector:
     def detect(
         self, X: np.ndarray, y_true: Optional[np.ndarray] = None
     ) -> Dict:
-        """Detect zero-day attacks."""
+        """Detect zero-day attacks in a batch of samples."""
         if self.threshold is None:
             raise ValueError("Call fit_thresholds() first")
 
