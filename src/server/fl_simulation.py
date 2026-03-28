@@ -1,11 +1,13 @@
 """
-Fed-Intel FL Simulation
-========================
-Orchestrates the full federated learning simulation across 3 company nodes.
+ACTIS FL Simulation
+====================
+Orchestrates the full federated learning simulation across 4 company nodes:
+  A, B — Enterprise (CIC-IDS2018): DDoS, DoS, Brute Force, Web, Botnet
+  C, D — IoT Sensor (BoT-IoT-v2):  DDoS/UDP, DoS/TCP, Reconnaissance, Theft
 
 Flow per round:
   1. Server sends global weights to all clients
-  2. Each client trains locally and returns (weights, loss, n_samples)
+  2. Each client trains locally with FedProx + class-weighted loss
   3. Server aggregates using trust-aware FedAvg
   4. Evaluate global model on each client's test set
 
@@ -70,12 +72,10 @@ class FLSimulation:
         loader = FedIntelDataLoader()
         company_data = loader.load_and_partition()
 
-        # ── Unified Label Encoder ────────────────────────────────────────
-        # Collect ALL unique attack labels across all companies so that
-        # class ID 3 means "ddos" everywhere (not "ddos" for A but
-        # "reconnaissance" for C).
+        # Collect ALL unique attack labels across ALL companies so that
+        # class ID 3 means "ddos" everywhere regardless of node.
         all_labels = set()
-        for cid in ["A", "B", "C"]:
+        for cid in company_data.keys():
             labels = company_data[cid]["data"][company_data[cid]["label_col"]].unique()
             all_labels.update(labels)
 
@@ -85,7 +85,7 @@ class FLSimulation:
 
         # ── Create Preprocessors + Clients ───────────────────────────────
         client_data = {}
-        for cid in ["A", "B", "C"]:
+        for cid in company_data.keys():
             console.print(f"\n[bold cyan]Setting up Client {cid}[/bold cyan]")
             prep = Preprocessor()
             # Pre-fit with the unified labels BEFORE encoding

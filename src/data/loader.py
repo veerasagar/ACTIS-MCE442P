@@ -140,7 +140,8 @@ class FedIntelDataLoader:
         self, df: pd.DataFrame, n_partitions: int, seed: int = 42
     ) -> list:
         """Split DataFrame into n roughly equal partitions."""
-        df = df.sample(frac=1, random_state=seed).reset_index(drop=True)
+        # Reset index first — parquet files may have non-sequential indices
+        df = df.reset_index(drop=True).sample(frac=1, random_state=seed).reset_index(drop=True)
         indices = np.array_split(df.index, n_partitions)
         return [df.loc[idx].reset_index(drop=True) for idx in indices]
 
@@ -151,14 +152,14 @@ class FedIntelDataLoader:
         Load both datasets, normalize labels, and partition across companies.
 
         Returns:
-            Dict[str, Dict] with keys "A", "B", "C" — each containing:
+            Dict[str, Dict] with keys "A", "B", "C", "D" — each containing:
                 - data: pd.DataFrame
                 - features: list of feature column names
                 - label_col: "attack_label"
                 - dataset: str
                 - description: str
         """
-        console.print("\n[bold]═══ Fed-Intel Data Loader ═══[/bold]\n")
+        console.print("\n[bold]═══ ACTIS Data Loader (4 Nodes) ═══[/bold]\n")
 
         # Load
         ids2018_df = self.load_ids2018()
@@ -177,6 +178,10 @@ class FedIntelDataLoader:
         # Partition IDS2018 into 2 parts (Company A, B)
         ids2018_partitions = self._partition_dataframe(ids2018_df, 2)
 
+        # Partition BoT-IoT into 2 parts (Company C, D)
+        # C = first half, D = second half — both IoT traffic but independent sensor networks
+        botiot_partitions = self._partition_dataframe(botiot_df, 2)
+
         company_data = {
             "A": {
                 "data": ids2018_partitions[0],
@@ -193,11 +198,18 @@ class FedIntelDataLoader:
                 "description": COMPANY_CONFIG["B"]["description"],
             },
             "C": {
-                "data": botiot_df,
+                "data": botiot_partitions[0],
                 "features": bot_features,
                 "label_col": "attack_label",
                 "dataset": COMPANY_CONFIG["C"]["dataset"],
                 "description": COMPANY_CONFIG["C"]["description"],
+            },
+            "D": {
+                "data": botiot_partitions[1],
+                "features": bot_features,
+                "label_col": "attack_label",
+                "dataset": COMPANY_CONFIG["D"]["dataset"],
+                "description": COMPANY_CONFIG["D"]["description"],
             },
         }
 
