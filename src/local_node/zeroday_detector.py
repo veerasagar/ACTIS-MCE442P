@@ -59,18 +59,34 @@ class _Autoencoder(nn.Module):
         return self.decoder(z)
 
 
+# Protocol column index in standard 41-feature CIC-IDS2018 ordering
+_PROTOCOL_COL_IDX = 2   # PROTOCOL column (6=TCP, 17=UDP, 1=ICMP)
+_PROTO_TCP  = 6
+_PROTO_UDP  = 17
+_PROTO_ICMP = 1
+
+
+def _get_protocol_mask(X: np.ndarray, proto: int) -> np.ndarray:
+    """Boolean mask for rows matching a given protocol value."""
+    return X[:, _PROTOCOL_COL_IDX] == proto
+
+
 class ZeroDayDetector:
     """
     Hybrid zero-day attack detector combining classifier confidence
-    with autoencoder reconstruction error.
+    with per-protocol autoencoder reconstruction error.
 
-    Two independent signals:
-    1. **Confidence**: max(softmax) and entropy from the IDS classifier
-    2. **Reconstruction**: MSE from an autoencoder trained only on known classes
+    Key insight: DDoS uses UDP/ICMP floods; DoS uses TCP resource exhaustion.
+    Training separate autoencoders per protocol cluster means:
+      - UDP autoencoder learns normal UDP traffic patterns
+      - When DDoS (malicious UDP) arrives, it has higher recon error
+      - This separates DDoS from DoS even when raw features overlap
 
-    When the classifier is confidently wrong (e.g., DDoS → web_attack),
-    the reconstruction error still flags the sample as anomalous because
-    the autoencoder hasn't seen that traffic pattern during training.
+    Signals:
+    1. **Confidence**: entropy + (1 - max_softmax) from IDS classifier
+    2. **Reconstruction**: min(MSE over per-protocol autoencoders)
+
+    Combined: ZDS = α·confidence + (1-α)·reconstruction
     """
 
     def __init__(
@@ -98,38 +114,65 @@ class ZeroDayDetector:
         self.threshold = threshold
         self.percentile = percentile
         self.max_entropy = None
-        self.autoencoder = None
-        self.recon_scale = None  # 99th percentile of training recon errors
+        # Per-protocol autoencoders
+        self._autoencoders: Dict[str, Optional[nn.Module]] = {
+            "tcp": None, "udp": None, "icmp": None, "other": None
+        }
+        self._recon_scales: Dict[str, float] = {}
 
-    def _train_autoencoder(self, X: np.ndarray, epochs: int = 30, lr: float = 1e-3):
-        """Train autoencoder on known-class data only."""
+    def _train_protocol_autoencoder(
+        self, X: np.ndarray, tag: str, epochs: int = 30, lr: float = 1e-3
+    ):
+        """Train one autoencoder on a protocol-specific subset of known-class data."""
+        if len(X) < 32:  # Not enough samples
+            return
         input_dim = X.shape[1]
-        self.autoencoder = _Autoencoder(input_dim)
-        optimizer = torch.optim.Adam(self.autoencoder.parameters(), lr=lr)
-
+        ae = _Autoencoder(input_dim)
+        optimizer = torch.optim.Adam(ae.parameters(), lr=lr)
         dataset = TensorDataset(torch.tensor(X, dtype=torch.float32))
-        loader = DataLoader(dataset, batch_size=256, shuffle=True)
-
-        self.autoencoder.train()
-        for epoch in range(epochs):
-            total_loss = 0
+        loader = DataLoader(dataset, batch_size=min(256, len(X)), shuffle=True)
+        ae.train()
+        for _ in range(epochs):
             for (batch,) in loader:
-                recon = self.autoencoder(batch)
+                recon = ae(batch)
                 loss = F.mse_loss(recon, batch)
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
-                total_loss += loss.item() * len(batch)
-
-        self.autoencoder.eval()
+                optimizer.zero_grad(); loss.backward(); optimizer.step()
+        ae.eval()
+        self._autoencoders[tag] = ae
 
     def _compute_recon_errors(self, X: np.ndarray) -> np.ndarray:
-        """Compute per-sample reconstruction error."""
-        self.autoencoder.eval()
-        with torch.no_grad():
-            X_t = torch.tensor(X, dtype=torch.float32)
-            recon = self.autoencoder(X_t)
-            errors = ((X_t - recon) ** 2).mean(dim=1).numpy()
+        """
+        Compute per-sample reconstruction error using the matching
+        protocol-specific autoencoder.
+
+        Samples for which no protocol AE exists fall back to "other".
+        """
+        errors = np.zeros(len(X), dtype=np.float32)
+        proto_col = X[:, _PROTOCOL_COL_IDX]
+
+        groups = {
+            "tcp":  proto_col == _PROTO_TCP,
+            "udp":  proto_col == _PROTO_UDP,
+            "icmp": proto_col == _PROTO_ICMP,
+        }
+        # Everything else → other
+        other_mask = ~(groups["tcp"] | groups["udp"] | groups["icmp"])
+        groups["other"] = other_mask
+
+        for tag, mask in groups.items():
+            if not mask.any():
+                continue
+            ae = self._autoencoders.get(tag) or self._autoencoders.get("other")
+            if ae is None:
+                continue
+            X_sub = torch.tensor(X[mask], dtype=torch.float32)
+            with torch.no_grad():
+                recon = ae(X_sub)
+                errs = ((X_sub - recon) ** 2).mean(dim=1).numpy()
+            # Normalize by this protocol's scale
+            scale = self._recon_scales.get(tag, self._recon_scales.get("other", 1.0))
+            errors[mask] = errs / max(scale, 1e-8)
+
         return errors
 
     def _compute_confidence_scores(self, X: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -155,19 +198,16 @@ class ZeroDayDetector:
         zds_conf = self.lambda_ * norm_entropy + (1 - self.lambda_) * (1 - max_conf)
         return zds_conf, max_conf, norm_entropy
 
-    def _compute_scores(self, X: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Compute hybrid ZDS = α·confidence + (1-α)·reconstruction."""
+    def _compute_scores(
+        self, X: np.ndarray, return_components: bool = False
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Compute hybrid ZDS = α·confidence + (1-α)·per-protocol-reconstruction."""
         zds_conf, max_conf, entropy = self._compute_confidence_scores(X)
 
-        if self.autoencoder is not None:
-            recon_errors = self._compute_recon_errors(X)
-            # Normalize reconstruction errors to [0, 1]
-            if self.recon_scale is not None and self.recon_scale > 0:
-                norm_recon = np.clip(recon_errors / self.recon_scale, 0, 1)
-            else:
-                norm_recon = recon_errors / (np.max(recon_errors) + 1e-10)
-
-            zds = self.alpha * zds_conf + (1 - self.alpha) * norm_recon
+        any_ae = any(v is not None for v in self._autoencoders.values())
+        if any_ae:
+            recon_errors = self._compute_recon_errors(X)  # already normalized per-proto
+            zds = self.alpha * zds_conf + (1 - self.alpha) * np.clip(recon_errors, 0, 1)
         else:
             zds = zds_conf
 
@@ -175,28 +215,41 @@ class ZeroDayDetector:
 
     def fit_thresholds(self, X_train: np.ndarray, y_train: np.ndarray) -> float:
         """
-        Train autoencoder on known-class data and calibrate ZDS threshold.
+        Train per-protocol autoencoders and calibrate ZDS threshold.
 
         Returns:
             Calibrated threshold value
         """
-        # Train autoencoder on known-class training data
-        self._train_autoencoder(X_train, epochs=30)
+        proto_col = X_train[:, _PROTOCOL_COL_IDX]
+        groups = {
+            "tcp":   proto_col == _PROTO_TCP,
+            "udp":   proto_col == _PROTO_UDP,
+            "icmp":  proto_col == _PROTO_ICMP,
+            "other": ~((proto_col == _PROTO_TCP) | (proto_col == _PROTO_UDP) | (proto_col == _PROTO_ICMP)),
+        }
 
-        # Compute reconstruction error scale
-        recon_train = self._compute_recon_errors(X_train)
-        self.recon_scale = float(np.percentile(recon_train, 99))
+        for tag, mask in groups.items():
+            if mask.sum() >= 32:
+                self._train_protocol_autoencoder(X_train[mask], tag)
+                # Compute scale from training data for this protocol
+                ae = self._autoencoders[tag]
+                if ae:
+                    X_sub = torch.tensor(X_train[mask], dtype=torch.float32)
+                    with torch.no_grad():
+                        recon = ae(X_sub)
+                        errs = ((X_sub - recon) ** 2).mean(dim=1).numpy()
+                    self._recon_scales[tag] = float(np.percentile(errs, 99))
 
-        # Compute ZDS on training data and set threshold
+        # Compute ZDS on full training data
         zds, _, _ = self._compute_scores(X_train)
         self.threshold = float(np.percentile(zds, self.percentile))
 
+        proto_counts = {t: int(m.sum()) for t, m in groups.items() if m.sum() > 0}
         console.print(
-            "  ZDS threshold: {:.4f} (p{}), recon_scale: {:.4f}".format(
-                self.threshold, self.percentile, self.recon_scale
+            "  ZDS threshold: {:.4f} (p{}), protos: {}".format(
+                self.threshold, self.percentile, proto_counts
             )
         )
-
         return self.threshold
 
     def detect(
