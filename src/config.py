@@ -96,7 +96,13 @@ COMPANY_CONFIG = {
         "dataset": "nf-bot-iot-v2",
         "file": "NF-BoT-IoT-V2.parquet",
         "partition": 0,
-        "description": "IoT botnet traffic (DDoS, DoS, Reconnaissance, Theft)",
+        "description": "IoT sensor network — partition 1 (DDoS/UDP, DoS/TCP, Reconnaissance, Theft)",
+    },
+    "D": {
+        "dataset": "nf-bot-iot-v2",
+        "file": "NF-BoT-IoT-V2.parquet",
+        "partition": 1,
+        "description": "IoT sensor network — partition 2 (DDoS/UDP focus, highly non-IID)",
     },
 }
 

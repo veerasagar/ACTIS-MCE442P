@@ -33,8 +33,10 @@ from src.config import MODELS_DIR
 from src.data.loader import FedIntelDataLoader
 from src.data.preprocessor import Preprocessor
 from src.data.mitre_mapper import MITREMapper
+from src.data.feature_engineer import FeatureEngineer
 from src.local_node.ids_model import IDSModel
 from src.local_node.ids_trainer import IDSTrainer
+from src.local_node.zeroday_detector import ZeroDayDetector
 from src.local_node.node import PrivacyNode
 from src.local_node.dp_layer import DPLayer
 from src.local_node.pii_validator import PIIValidator
@@ -43,6 +45,34 @@ from src.server.global_kb import GlobalKnowledgeBase
 from src.server.aggregator import Aggregator
 from src.server.rag_engine import RAGEngine
 from src.server.immunity import ImmunityEngine
+
+# Lazy BERTScore import
+def _compute_bertscore(predictions: List[str], references: List[str]) -> Dict:
+    """Compute BERTScore P/R/F1 between predictions and references."""
+    try:
+        from bert_score import score as bert_score
+        P, R, F = bert_score(predictions, references, lang="en", verbose=False)
+        return {
+            "precision": float(P.mean()),
+            "recall": float(R.mean()),
+            "f1": float(F.mean()),
+        }
+    except ImportError:
+        console.print("  [yellow]bert-score not installed. Run: pip install bert-score[/yellow]")
+        # Fallback: simple token overlap (ROUGE-1 approximation)
+        from collections import Counter
+        def rouge1(pred, ref):
+            pred_toks = set(pred.lower().split())
+            ref_toks  = set(ref.lower().split())
+            if not ref_toks: return 0.0
+            return len(pred_toks & ref_toks) / len(ref_toks)
+        scores = [rouge1(p, r) for p, r in zip(predictions, references)]
+        avg = float(np.mean(scores))
+        return {"precision": avg, "recall": avg, "f1": avg, "note": "ROUGE-1 fallback (no bert-score)"}
+    except Exception as e:
+        console.print(f"  [yellow]BERTScore failed: {e}[/yellow]")
+        return {"precision": 0.0, "recall": 0.0, "f1": 0.0}
+
 
 console = Console()
 
@@ -240,97 +270,135 @@ def eval_pii_and_dp(data: Dict, num_samples: int = 200) -> Dict:
 # ═══════════════════════════════════════════════════════════════════════════
 
 def eval_zeroday_and_quality(prep: Dict, unified: List[str]) -> Dict:
-    """Evaluate zero-day detection and threat report quality."""
+    """Evaluate zero-day detection (ZeroDayDetector) and threat report quality (BERTScore)."""
     console.print(Panel("[bold]EVALUATION 3: Zero-Day Detection + Report Quality[/bold]", style="cyan"))
 
     results = {"zeroday": {}, "report_quality": {}}
     mapper = MITREMapper()
+    fe = FeatureEngineer()
 
-    # ── Zero-Day Simulation ──
-    # Train on subset of classes, test on ALL (including "unseen" ones)
-    console.print("\n[bold]A) Zero-Day Detection (train without 'botnet', test on all)[/bold]")
+    # ── Zero-Day Simulation (ZeroDayDetector with autoencoder) ──
+    console.print("\n[bold]A) Zero-Day Detection (ZeroDayDetector — autoencoder-based)[/bold]")
+    console.print("   Excluding one class at a time, testing detection rate & FAR")
 
-    known_types = [l for l in unified if l != "botnet"]
-    zeroday_type = "botnet"
-
-    # Train model excluding botnet
     cid = "A"
     d = prep[cid]
-    X_train, y_train = d["X_train"], d["y_train"]
-    X_test, y_test = d["X_test"], d["y_test"]
+    X_tr_raw, X_te_raw = d["X_train"], d["X_test"]
+    y_tr, y_te = d["y_train"], d["y_test"]
 
-    # Mask out botnet from training
-    botnet_idx = unified.index(zeroday_type) if zeroday_type in unified else -1
-    if botnet_idx >= 0:
-        train_mask = y_train != botnet_idx
-        X_train_known = X_train[train_mask]
-        y_train_known = y_train[train_mask]
+    # Enhance with temporal features
+    X_tr_enh = fe.transform(X_tr_raw).astype(np.float32)
+    X_te_enh = fe.transform(X_te_raw).astype(np.float32)
+    n_features = X_tr_enh.shape[1]
 
-        model = IDSModel(input_dim=41, num_classes=len(unified))
+    zeroday_results = {}
+    classes_to_test = [l for l in ["botnet", "dos", "brute_force"] if l in unified]
+
+    zd_table = Table(title="🔍 Zero-Day Detection Results", show_lines=True)
+    zd_table.add_column("Excluded Class", style="cyan")
+    zd_table.add_column("Train Samples", justify="center")
+    zd_table.add_column("Test (unseen)", justify="center")
+    zd_table.add_column("Detected ↑", justify="center")
+    zd_table.add_column("Detection Rate ↑", justify="center")
+    zd_table.add_column("FAR ↓", justify="center")
+
+    for zd_class in classes_to_test:
+        if zd_class not in unified:
+            continue
+        zd_idx = unified.index(zd_class)
+        known_idx = [i for i in range(len(unified)) if i != zd_idx]
+        train_mask = y_tr != zd_idx
+        X_tk, y_tk = X_tr_enh[train_mask], y_tr[train_mask]
+
+        # Train IDS model on known classes
+        model = IDSModel(input_dim=n_features, num_classes=len(unified))
         trainer = IDSTrainer(model=model)
-        trainer.train(X_train_known, y_train_known, epochs=10, verbose=False)
+        trainer.train(X_tk, y_tk, epochs=10, verbose=False)
 
-        # Test on all data
-        metrics_all = trainer.evaluate(X_test, y_test)
+        # Fit ZeroDayDetector
+        detector = ZeroDayDetector(model, lambda_=0.5, alpha=0.3, percentile=90)
+        detector.fit_thresholds(X_tk, y_tk)
 
-        # Test on botnet-only (zero-day)
-        test_botnet_mask = y_test == botnet_idx
-        if test_botnet_mask.sum() > 0:
-            X_zd = X_test[test_botnet_mask]
-            y_zd = y_test[test_botnet_mask]
-            metrics_zd = trainer.evaluate(X_zd, y_zd)
+        # Detect on test set
+        r = detector.detect_and_report(X_te_enh, y_true=y_te, known_class_idx=known_idx)
+        uf = r.get("unknown_flagged", 0)
+        uc = r.get("unknown_count", 0)
+        udr = r.get("unknown_detection_rate", 0) * 100
+        far = r.get("known_false_alarm_rate", 0) * 100
+        dr_color = "green" if udr > 60 else "yellow" if udr > 30 else "red"
+        far_color = "green" if far < 10 else "yellow" if far < 20 else "red"
 
-            # How many botnet were flagged as attack (not benign)?
-            import torch
-            model.eval()
-            with torch.no_grad():
-                X_t = torch.tensor(X_zd, dtype=torch.float32)
-                preds = model(X_t).argmax(dim=1).numpy()
-            benign_idx = unified.index("benign") if "benign" in unified else 0
-            detected_as_attack = (preds != benign_idx).sum()
-            total_zd = len(y_zd)
-            zeroday_detection_rate = detected_as_attack / total_zd
+        zd_table.add_row(
+            zd_class, str(len(X_tk)), f"{uc}",
+            f"{uf}",
+            f"[{dr_color}]{udr:.1f}%[/{dr_color}]",
+            f"[{far_color}]{far:.1f}%[/{far_color}]",
+        )
+        zeroday_results[zd_class] = {
+            "detection_rate": float(udr / 100),
+            "false_alarm_rate": float(far / 100),
+            "detected": uf, "total": uc,
+        }
 
-            results["zeroday"] = {
-                "zeroday_type": zeroday_type,
-                "total_samples": int(total_zd),
-                "detected_as_attack": int(detected_as_attack),
-                "detection_rate": float(zeroday_detection_rate),
-                "overall_accuracy_without_zeroday_training": float(metrics_all["accuracy"]),
-            }
+    console.print(zd_table)
+    avg_dr = np.mean([v["detection_rate"] for v in zeroday_results.values()]) if zeroday_results else 0
+    console.print("  [bold]Average Zero-Day Detection Rate: {:.1f}%[/bold]".format(avg_dr * 100))
+    results["zeroday"] = zeroday_results
 
-            console.print("  Zero-day type: '{}' (excluded from training)".format(zeroday_type))
-            console.print("  Samples tested: {}".format(total_zd))
-            console.print("  Detected as attack (not benign): {}/{} ({:.1f}%)".format(
-                detected_as_attack, total_zd, zeroday_detection_rate * 100))
-            console.print("  Overall accuracy (with unseen class): {:.4f}".format(metrics_all["accuracy"]))
-        else:
-            console.print("  [yellow]No botnet samples in test set[/yellow]")
-    else:
-        console.print("  [yellow]Botnet not in unified labels[/yellow]")
-
-    # ── Report Quality ──
-    console.print("\n[bold]B) Threat Report Quality Metrics[/bold]")
+    # ── Report Quality (BERTScore) ──
+    console.print("\n[bold]B) Threat Report Quality (BERTScore + structural checks)[/bold]")
 
     from src.data.summarizer import ThreatSummarizer
     summarizer = ThreatSummarizer()
     validator = PIIValidator()
 
+    # Reference templates for BERTScore comparison
+    REFERENCE_TEMPLATES = {
+        "ddos": (
+            "Distributed Denial of Service attack detected with high inbound byte volume "
+            "and packet rate. Indicates volumetric flood targeting availability. "
+            "MITRE ATT&CK T1498 - Network Denial of Service."
+        ),
+        "dos": (
+            "Denial of Service attack observed with sustained high traffic rate. "
+            "Targets service availability through resource exhaustion. "
+            "MITRE ATT&CK T1499 - Endpoint Denial of Service."
+        ),
+        "brute_force": (
+            "Brute force credential attack detected with repeated authentication attempts. "
+            "Indicates credential stuffing or password spraying. "
+            "MITRE ATT&CK T1110 - Brute Force."
+        ),
+        "web_attack": (
+            "Web application attack including SQL injection or XSS payload observed. "
+            "Targets application layer vulnerabilities. "
+            "MITRE ATT&CK T1190 - Exploit Public-Facing Application."
+        ),
+        "botnet": (
+            "Botnet C2 communication detected with regular beacon intervals. "
+            "Host likely compromised and receiving remote commands. "
+            "MITRE ATT&CK T1071 - Application Layer Protocol."
+        ),
+    }
+
+    test_flow = {
+        "PROTOCOL": 6, "L4_SRC_PORT": 12345, "L4_DST_PORT": 80,
+        "IN_BYTES": 500000, "OUT_BYTES": 200, "IN_PKTS": 1000,
+        "OUT_PKTS": 5, "FLOW_DURATION_MILLISECONDS": 100, "TCP_FLAGS": 2
+    }
+
     quality_scores = []
+    predictions, references = [], []
+
     for attack in ["ddos", "dos", "brute_force", "web_attack", "botnet"]:
-        test_flow = {
-            "PROTOCOL": 6, "L4_SRC_PORT": 12345, "L4_DST_PORT": 80,
-            "IN_BYTES": 500000, "OUT_BYTES": 200, "IN_PKTS": 1000,
-            "OUT_PKTS": 5, "FLOW_DURATION_MILLISECONDS": 100, "TCP_FLAGS": 2
-        }
         summary = summarizer.summarize_flow(test_flow, attack, "A")
         mitre = mapper.map(attack)
+        summary_text = summary.get("summary", "")
 
-        # Quality checks
-        has_summary = bool(summary.get("summary", ""))
+        has_summary = bool(summary_text)
         has_mitre = mitre["technique_id"] != "UNKNOWN"
         has_severity = mitre["severity"] != "NONE"
-        summary_len = len(summary.get("summary", ""))
+        summary_len = len(summary_text)
         is_pii_clean, _ = validator.validate(summary)
 
         score = {
@@ -343,6 +411,24 @@ def eval_zeroday_and_quality(prep: Dict, unified: List[str]) -> Dict:
             "quality_score": sum([has_summary, has_mitre, has_severity, is_pii_clean, summary_len > 50]) / 5.0,
         }
         quality_scores.append(score)
+
+        if summary_text:
+            predictions.append(summary_text)
+            references.append(REFERENCE_TEMPLATES.get(attack, summary_text))
+
+    # BERTScore
+    if predictions:
+        console.print("  Computing BERTScore...")
+        bs = _compute_bertscore(predictions, references)
+        results["bertscore"] = bs
+        console.print(
+            "  BERTScore — P: {:.4f}, R: {:.4f}, F1: {:.4f}{}".format(
+                bs["precision"], bs["recall"], bs["f1"],
+                f" [{bs['note']}]" if "note" in bs else ""
+            )
+        )
+    else:
+        results["bertscore"] = {"precision": 0.0, "recall": 0.0, "f1": 0.0}
 
     results["report_quality"] = quality_scores
 
@@ -370,7 +456,9 @@ def eval_zeroday_and_quality(prep: Dict, unified: List[str]) -> Dict:
 
     avg_quality = np.mean([s["quality_score"] for s in quality_scores])
     console.print(table)
-    console.print("  [bold]Average Report Quality: {:.0f}%[/bold]".format(avg_quality * 100))
+    console.print("  [bold]Avg Report Quality: {:.0f}% | BERTScore F1: {:.4f}[/bold]".format(
+        avg_quality * 100, results.get("bertscore", {}).get("f1", 0)
+    ))
 
     return results
 

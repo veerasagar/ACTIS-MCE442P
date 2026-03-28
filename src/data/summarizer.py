@@ -1,19 +1,22 @@
 """
-Fed-Intel Threat Summarizer
-=============================
+ACTIS Threat Summarizer
+========================
 Converts raw network flow rows into natural language threat summaries.
 
-Two modes:
-  1. Deterministic (template-based) — fast, no API needed, used for bulk processing
-  2. LLM-enhanced (Gemini) — richer analysis, used for high-severity threats
+Three modes:
+  1. Deterministic (template-based) — fast, no API needed, bulk processing
+  2. LLM-enhanced (Gemini) — richer, more natural analysis for high-severity threats
+     Produces higher BERTScore vs pure templates.
+     Falls back to deterministic if GEMINI_API_KEY not set.
 
 Usage:
     from src.data.summarizer import ThreatSummarizer
-    summarizer = ThreatSummarizer()
-    summary = summarizer.summarize_flow(row, features, attack_label)
+    summarizer = ThreatSummarizer()          # auto detects LLM
+    summary = summarizer.summarize_flow(row, attack_label, company)
 """
 
 import json
+import os
 from pathlib import Path
 from typing import Dict, Optional
 from rich.console import Console
@@ -23,6 +26,51 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.data.mitre_mapper import MITREMapper
 
 console = Console()
+
+# ─── LLM Setup (lazy, optional) ─────────────────────────────────────────────
+
+_gemini_model = None
+
+def _get_gemini():
+    """Lazy-load Gemini model. Returns None if unavailable."""
+    global _gemini_model
+    if _gemini_model is None:
+        api_key = os.environ.get("GEMINI_API_KEY", "")
+        if not api_key:
+            _gemini_model = False
+            return None
+        try:
+            import google.generativeai as genai
+            genai.configure(api_key=api_key)
+            _gemini_model = genai.GenerativeModel("gemini-1.5-flash")
+        except Exception:
+            _gemini_model = False
+    return _gemini_model if _gemini_model is not False else None
+
+# High-severity thresholds that trigger LLM enhancement
+_LLM_SEVERITIES = {"CRITICAL", "HIGH"}
+
+# LLM prompt template
+_LLM_PROMPT = """\
+You are a cybersecurity analyst writing a threat intelligence report.
+Given the following network flow data and attack classification, write a concise \
+2-3 sentence threat summary that:
+- States the attack type and its impact clearly
+- References specific flow statistics (bytes, packets, protocol, duration)
+- Cites the MITRE ATT&CK technique
+- Uses professional security language
+
+Flow data:
+  Attack type: {attack_label}
+  Protocol: {protocol}
+  Destination: {dst_service} (port {dst_port})
+  Inbound: {in_bytes} bytes, {in_pkts} packets
+  Outbound: {out_bytes} bytes, {out_pkts} packets
+  Duration: {duration}ms
+  MITRE: {mitre_id} — {mitre_technique} ({mitre_tactic})
+  Severity: {severity}
+
+Write ONLY the summary paragraph, no headers or bullet points."""
 
 # ─── Protocol Mappings ──────────────────────────────────────────────────────
 
@@ -70,8 +118,62 @@ def _format_duration(ms: int) -> str:
 class ThreatSummarizer:
     """Generates natural language summaries from network flow data."""
 
-    def __init__(self):
+    def __init__(self, use_llm: bool = True):
+        """
+        Args:
+            use_llm: if True, attempt Gemini LLM enhancement for high-severity
+                     threats. Falls back to deterministic if unavailable.
+        """
         self.mitre = MITREMapper()
+        self.use_llm = use_llm
+        self._llm_calls = 0
+        self._llm_failures = 0
+
+    def _try_llm_summary(
+        self,
+        attack_label: str,
+        protocol: str,
+        src_port: int,
+        dst_port: int,
+        in_bytes: int,
+        out_bytes: int,
+        in_pkts: int,
+        out_pkts: int,
+        duration: int,
+        mitre: Dict,
+    ) -> Optional[str]:
+        """
+        Attempt LLM-enhanced summary via Gemini.
+        Returns None if LLM unavailable or fails.
+        """
+        model = _get_gemini()
+        if model is None:
+            return None
+
+        prompt = _LLM_PROMPT.format(
+            attack_label=attack_label,
+            protocol=protocol,
+            dst_service=_port_service(dst_port),
+            dst_port=dst_port,
+            in_bytes=_format_bytes(in_bytes),
+            in_pkts=in_pkts,
+            out_bytes=_format_bytes(out_bytes),
+            out_pkts=out_pkts,
+            duration=duration,
+            mitre_id=mitre["technique_id"],
+            mitre_technique=mitre["technique"],
+            mitre_tactic=mitre["tactic"],
+            severity=mitre["severity"],
+        )
+        try:
+            self._llm_calls += 1
+            response = model.generate_content(prompt)
+            text = response.text.strip()
+            if len(text) > 30:  # Sanity check: non-empty response
+                return text
+        except Exception as e:
+            self._llm_failures += 1
+        return None
 
     # ─── Deterministic Summarizer ───────────────────────────────────────
 
@@ -83,6 +185,9 @@ class ThreatSummarizer:
     ) -> Dict:
         """
         Generate a structured threat summary from a single flow row.
+
+        For HIGH/CRITICAL severity attacks, attempts LLM-enhanced generation
+        via Gemini. Falls back to deterministic templates if unavailable.
 
         Args:
             row: dict of feature name → value for one flow
@@ -103,25 +208,46 @@ class ThreatSummarizer:
         duration = int(row.get("FLOW_DURATION_MILLISECONDS", 0))
         tcp_flags = int(row.get("TCP_FLAGS", 0))
 
-        # Build natural language summary
-        nl_summary = self._build_nl_summary(
-            attack_label=attack_label,
-            protocol=protocol,
-            src_port=src_port,
-            dst_port=dst_port,
-            in_bytes=in_bytes,
-            out_bytes=out_bytes,
-            in_pkts=in_pkts,
-            out_pkts=out_pkts,
-            duration=duration,
-            tcp_flags=tcp_flags,
-            mitre=mitre,
-            company=company,
-        )
+        # LLM-enhanced summary for high-severity threats
+        nl_summary = None
+        llm_enhanced = False
+        if self.use_llm and mitre.get("severity") in _LLM_SEVERITIES:
+            nl_summary = self._try_llm_summary(
+                attack_label=attack_label,
+                protocol=protocol,
+                src_port=src_port,
+                dst_port=dst_port,
+                in_bytes=in_bytes,
+                out_bytes=out_bytes,
+                in_pkts=in_pkts,
+                out_pkts=out_pkts,
+                duration=duration,
+                mitre=mitre,
+            )
+            if nl_summary:
+                llm_enhanced = True
+
+        # Fallback: deterministic template
+        if nl_summary is None:
+            nl_summary = self._build_nl_summary(
+                attack_label=attack_label,
+                protocol=protocol,
+                src_port=src_port,
+                dst_port=dst_port,
+                in_bytes=in_bytes,
+                out_bytes=out_bytes,
+                in_pkts=in_pkts,
+                out_pkts=out_pkts,
+                duration=duration,
+                tcp_flags=tcp_flags,
+                mitre=mitre,
+                company=company,
+            )
 
         # Structured output (used for ChromaDB metadata + RAG)
         return {
             "summary": nl_summary,
+            "llm_enhanced": llm_enhanced,
             "attack_type": attack_label,
             "mitre_technique_id": mitre["technique_id"],
             "mitre_tactic": mitre["tactic"],
