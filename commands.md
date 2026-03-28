@@ -212,3 +212,130 @@ For a fast demo showing the complete pipeline:
 ```bash
 python3 -m src.cli simulate --rounds 3 --samples 5000 --threats 10
 ```
+
+---
+
+## 11. Install Additional Dependencies (High-Impact Fixes)
+
+```bash
+# BERTScore for report quality evaluation
+python3 -m pip install bert-score
+
+# Cross-encoder reranking for RAG (optional — fallback to bi-encoder if missing)
+python3 -m pip install sentence-transformers
+```
+
+---
+
+## 12. Test Feature Engineering (58-dim temporal features)
+
+```bash
+python3 -c "
+import numpy as np, sys; sys.path.insert(0, '.')
+from src.data.feature_engineer import FeatureEngineer
+fe = FeatureEngineer()
+X = np.random.rand(100, 41).astype('float32')
+X_enh = fe.transform(X)
+print(f'Input: {X.shape}  →  Output: {X_enh.shape}')
+print('Features added:', fe.feature_names())
+"
+```
+
+---
+
+## 13. Test Per-Protocol Zero-Day Detector
+
+```bash
+python3 -c "
+import warnings; warnings.filterwarnings('ignore')
+import numpy as np, sys; sys.path.insert(0, '.')
+from src.data.feature_engineer import FeatureEngineer
+from src.local_node.ids_model import IDSModel
+from src.local_node.zeroday_detector import ZeroDayDetector
+
+fe = FeatureEngineer()
+X_raw = np.random.rand(500, 41).astype('float32')
+X_raw[:150, 2] = 6    # TCP
+X_raw[150:300, 2] = 17 # UDP  (DDoS uses this)
+X_raw[300:400, 2] = 1  # ICMP
+X_enh = fe.transform(X_raw)
+y = np.zeros(500, dtype=int); y[50:] = 1
+
+model = IDSModel(input_dim=X_enh.shape[1], num_classes=9)
+det = ZeroDayDetector(model, percentile=90, alpha=0.3)
+det.fit_thresholds(X_enh, y)
+print('Autoencoders:', [k for k,v in det._autoencoders.items() if v])
+print('Threshold:', round(det.threshold, 4))
+"
+```
+
+---
+
+## 14. Test BERTScore Report Quality
+
+```bash
+python3 -c "
+import warnings; warnings.filterwarnings('ignore')
+import sys; sys.path.insert(0, '.')
+from src.evaluation.evaluate import _compute_bertscore
+
+preds = ['DDoS attack detected with high-volume UDP flood targeting availability.']
+refs  = ['Distributed Denial of Service with volumetric flood. MITRE T1498.']
+bs = _compute_bertscore(preds, refs)
+print(f'BERTScore  P={bs[\"precision\"]:.4f}  R={bs[\"recall\"]:.4f}  F1={bs[\"f1\"]:.4f}')
+"
+```
+
+---
+
+## 15. Live Monitor (Real-Time Deployment)
+
+```bash
+# Process a CSV of network flows and print alerts
+python3 -m src.live_monitor --input flows.csv --company A
+
+# Process CSV and save alerts to JSONL file
+python3 -m src.live_monitor --input flows.csv --output alerts.jsonl
+
+# Tail a growing live capture CSV (5-second poll)
+python3 -m src.live_monitor --tail /var/log/netflows.csv --interval 5
+
+# Use with a pre-trained saved model
+python3 -m src.live_monitor --input flows.csv --model models/ids_A.pt --company A
+
+# Pipe directly from nfdump
+nfdump -r capture.nfcapd -o csv | python3 -m src.live_monitor --stdin
+```
+
+The live monitor runs the full pipeline per flow:
+
+1. **Feature engineering** (41 → 58 dims)
+2. **IDS classification** (IDSModel)
+3. **Zero-day detection** (per-protocol ZeroDayDetector)
+4. **PII validation** (blocks sensitive data)
+5. **Threat summarization** (Gemini LLM for HIGH/CRITICAL, template fallback)
+
+---
+
+## 16. RAG with Cross-Encoder Reranking + Abstention
+
+```bash
+python3 -c "
+import warnings; warnings.filterwarnings('ignore')
+import shutil, sys; sys.path.insert(0, '.')
+from src.server.global_kb import GlobalKnowledgeBase
+from src.server.rag_engine import RAGEngine
+
+kb = GlobalKnowledgeBase(persist_dir='/tmp/actis_kb_test')
+kb.populate_mitre()
+
+# RAG with abstention (returns abstained=True if similarity too low)
+rag = RAGEngine(kb, abstention_threshold=0.30, use_reranker=True)
+results = rag.query('DDoS amplification attack using UDP')
+print(f'Abstained: {results[\"abstained\"]}')
+print(f'Best score: {results[\"best_score\"]:.3f}')
+print(f'Threats found: {len(results[\"threats\"])}')
+
+shutil.rmtree('/tmp/actis_kb_test', ignore_errors=True)
+"
+```
