@@ -8,7 +8,7 @@
 ## 1. Overview of Compared Systems
 
 | System | Paper | Year | Core Idea |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | **ReGAIN** | ReGAIN: Retrieval-Grounded AI for Network Traffic Analysis | Dec 2025 | RAG + GPT-4 for explainable IDS |
 | **Tri-LLM** | Tri-LLM Cooperative Federated Zero-Shot IDS | Jan 2026 | 3-LLM semantic prototypes + federated zero-shot |
 | **CyberRAG** | CyberRAG: Agentic RAG Cyber Attack Classification | Jul 2025 | Agentic RAG with modular BERT classifiers |
@@ -23,7 +23,7 @@
 ReGAIN only evaluates two binary attack classifiers. ACTIS was benchmarked on equivalent attack types from NF-CIC-IDS2018-v2 and NF-BoT-IoT-v2.
 
 | Metric | ReGAIN | **ACTIS** | Improvement |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | TCP SYN Flood Accuracy | 98.82% | **100.00%** | +1.18 pts |
 | TCP SYN Flood Precision | ≈91.0% | **100.0%** | **+9.0 pts** |
 | TCP SYN Flood Recall | ≈98.6% | **100.0%** | +1.4 pts |
@@ -41,7 +41,7 @@ ReGAIN only evaluates two binary attack classifiers. ACTIS was benchmarked on eq
 Tri-LLM reports 80%+ zero-shot accuracy across 3 federated clients on IoT traffic.
 
 | Metric | Tri-LLM | **ACTIS** | Improvement |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | FL clients | 3 | **4 (A, B, C, D)** | +1 node |
 | Datasets used | 1 (IoT) | **2 (IDS2018 + BoT-IoT)** | Cross-dataset FL |
 | Non-IID FL Accuracy (worst client) | 85.6% | **98.4%** (Co. C) | **+12.8 pts** |
@@ -57,7 +57,7 @@ Tri-LLM reports 80%+ zero-shot accuracy across 3 federated clients on IoT traffi
 CyberRAG uses a fine-tuned BERT classifier and RAG retrieval to generate structured reports.
 
 | Metric | CyberRAG | **ACTIS** | Notes |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | BERTScore F1 | **0.94** | 0.919 | -0.021 gap |
 | BERTScore Precision | — | 0.9364 | Measured |
 | BERTScore Recall | — | 0.9022 | Measured |
@@ -76,7 +76,7 @@ CyberRAG uses a fine-tuned BERT classifier and RAG retrieval to generate structu
 ### 3.1 Feature Space
 
 | Component | ReGAIN | Tri-LLM | CyberRAG | **ACTIS** |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | Raw features | 41 NetFlow | Semantic embeddings | BERT text features | 41 NetFlow |
 | Derived features | ❌ | ❌ | ❌ | ✅ **+25 engineered** |
 | DDoS-specific features | ❌ | ❌ | ❌ | ✅ TCP_FLAGS decomp, win_ratio |
@@ -86,7 +86,7 @@ CyberRAG uses a fine-tuned BERT classifier and RAG retrieval to generate structu
 **The 25 derived features** (17 temporal + 8 DDoS-specific) come from empirical analysis of the datasets:
 
 | Feature Group | Key Features | DDoS Signal |
-|---|---|---|
+| --- | --- | --- |
 | TCP Flag bits | `tcp_flag_syn`, `tcp_flag_ack`, `tcp_flag_psh`, `tcp_flag_fin`, `tcp_flag_rst` | DDoS: flags=219, DoS: flags=27 (8× ratio) |
 | TCP flag count | `tcp_flag_count` (popcount/6) | DDoS sets many flags simultaneously |
 | Window ratio | `tcp_win_ratio` (WIN_MAX_IN/OUT) | DDoS: 65535 (max), DoS: 26883 |
@@ -99,7 +99,7 @@ CyberRAG uses a fine-tuned BERT classifier and RAG retrieval to generate structu
 ### 3.2 Federated Learning
 
 | Aspect | ReGAIN | Tri-LLM | CyberRAG | **ACTIS** |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | FL support | ❌ | ✅ 3-client | ❌ | ✅ **4-client** |
 | Non-IID handling | — | Partial | — | ✅ FedProx μ=0.01 |
 | Class-weighted loss | — | ❌ | — | ✅ Auto-computed |
@@ -112,7 +112,7 @@ CyberRAG uses a fine-tuned BERT classifier and RAG retrieval to generate structu
 ### 3.3 Zero-Day Detection
 
 | Method | ReGAIN | Tri-LLM | CyberRAG | **ACTIS** |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | Zero-day mechanism | Heuristic rules | ZDS cosine + disagreement | ❌ | ✅ Per-protocol autoencoder |
 | Detection rate (DDoS) | ~60% est. | 68% | — | **99.5%** (BoT-IoT) |
 | Detection rate (botnet) | — | ~68% avg | — | **100%** |
@@ -126,7 +126,7 @@ CyberRAG uses a fine-tuned BERT classifier and RAG retrieval to generate structu
 ### 3.4 Privacy Stack
 
 | Privacy Feature | ReGAIN | Tri-LLM | CyberRAG | **ACTIS** |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | PII sanitization | ❌ | ❌ | ❌ | ✅ 0% leakage |
 | Differential Privacy | ❌ | ❌ | ❌ | ✅ (ε, δ)-DP Gaussian |
 | DP noise layer | ❌ | ❌ | ❌ | ✅ `DPLayer` in model |
@@ -140,7 +140,7 @@ CyberRAG uses a fine-tuned BERT classifier and RAG retrieval to generate structu
 ### 3.5 RAG Engine
 
 | RAG Feature | ReGAIN | Tri-LLM | CyberRAG | **ACTIS** |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | Retrieval method | Bi-encoder + cross-encoder | Semantic prototypes | BERT + MMR | ✅ Bi + cross-encoder |
 | Cross-encoder | ✅ GPT-4 | ❌ | ❌ | ✅ ms-marco-MiniLM |
 | Abstention mechanism | ✅ | ❌ | ❌ | ✅ threshold=0.30 |
@@ -153,7 +153,7 @@ CyberRAG uses a fine-tuned BERT classifier and RAG retrieval to generate structu
 ## 4. Deployment & Operational Superiority
 
 | Operational Feature | ReGAIN | Tri-LLM | CyberRAG | **ACTIS** |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | Real-time stream processing | ❌ | ❌ | ❌ | ✅ `live_monitor.py` |
 | CSV batch processing | ❌ | ❌ | ❌ | ✅ `--input flows.csv` |
 | Live tail of growing log | ❌ | ❌ | ❌ | ✅ `--tail /path/log.csv` |
@@ -167,7 +167,7 @@ CyberRAG uses a fine-tuned BERT classifier and RAG retrieval to generate structu
 ## 5. Dataset Coverage
 
 | Dataset | ReGAIN | Tri-LLM | CyberRAG | **ACTIS** |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | NF-CSE-CIC-IDS2018-v2 | ❌ | ❌ | ✅ | ✅ (nodes A, B) |
 | NF-BoT-IoT-v2 | ❌ | ✅ (IoT) | ❌ | ✅ (nodes C, D) |
 | MAWILab (PCAP) | ✅ | ❌ | ❌ | ❌ (NetFlow only) |
@@ -179,7 +179,7 @@ CyberRAG uses a fine-tuned BERT classifier and RAG retrieval to generate structu
 ## 6. Final Scorecard
 
 | Category | ReGAIN | Tri-LLM | CyberRAG | **ACTIS** |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | Detection accuracy | ★★★★☆ | ★★★★☆ | ★★★☆☆ | **★★★★★** |
 | Report quality | ★★★☆☆ | ★★☆☆☆ | **★★★★★** | ★★★★☆ |
 | Federated learning | ★☆☆☆☆ | ★★★★☆ | ★☆☆☆☆ | **★★★★★** |
@@ -195,13 +195,9 @@ CyberRAG uses a fine-tuned BERT classifier and RAG retrieval to generate structu
 ## 7. Limitations & Honest Assessment
 
 | Limitation | Impact | Status |
-|---|---|---|
+| --- | --- | --- |
 | BERTScore 0.919 vs CyberRAG 0.94 | Minor | Closes when Gemini API key is active |
 | DDoS on CIC-IDS2018 only 15.2% → fixed to 18.2% | Partial fix | Dataset limitation; resolved with BoT-IoT (99.5%) |
 | ReGAIN comparison uses proxy dataset (NetFlow ≠ PCAP) | Indirect | Honest disclosure; attack types are equivalent |
 | No live PCAP capture yet (CSV-based only) | Operational | Addressable with scapy/nfcapd integration |
 | DP sigma not formally derived (current: hardcoded) | Research | Gaussian mechanism formula ready to integrate |
-
----
-
-*Generated: March 2026 | ACTIS Project | MCE442P*
