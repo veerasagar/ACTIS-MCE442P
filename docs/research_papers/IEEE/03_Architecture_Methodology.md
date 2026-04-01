@@ -1,33 +1,52 @@
 # III. ACTIS Architecture and Methodology
 
-To transition from disjointed anomaly classifiers to an integrated, intelligence-generating defense mesh, the ACTIS framework is fundamentally architected across three interactive layers: Multi-org Federated Telemetry, Privacy & Dissemination control, and the Edge RAG intelligence layer. ACTIS synthesizes discrete network packets into holistic vector intelligence, subsequently disseminating anonymized behavioral knowledge to global security graphs.
+To transition from disjointed anomaly classifiers to an integrated, intelligence-generating defense mesh, the ACTIS framework is fundamentally architected across three interactive layers.
+
+> [!TIP]
+> **Architecture Diagram Placeholder**: Insert a visual diagram here demonstrating the data flow: Raw Telemetry $\rightarrow$ Local Autoencoder & PII LLM Scrubber $\rightarrow$ LDP Noise Injection $\rightarrow$ Trust-Aware FedProx Server.
 
 ## A. Feature Space Engineering
-Raw packet flows are captured and mapped into a comprehensive 66-dimensional numerical vector. This robust abstraction expands significantly upon standard 41 NetFlow fields natively extracted by tools like NFStream.
-To accommodate modern volumetric threats, specifically varied Distributed Denial of Service (DDoS) forms, ACTIS introduces 25 dynamically derived engineered attributes. Driven strictly by quantitative analysis, specific feature additions include:
-- **Flag Decompilation (`tcp_flag_syn`, `tcp_flag_rst`, etc.):** Isolating specific bit-level activations heavily correlative to DoS floods.
-- **Asymmetry Factors (`byte_asymmetry`, `pkt_asymmetry`):** Calculating inbound/outbound disparities (e.g., massive incoming SYN packets juxtaposed with negligible outgoing payload size).
-- **Throughput Metrics (`tp_dst_src_norm`):** Applying a $\log(\text{DST\_TO\_SRC\_TP})$ function to smooth out sudden traffic intensity peaks while amplifying persistent high-throughput variance.
+Raw packet flows are captured and mapped into a comprehensive 66-dimensional numerical vector. To accommodate modern volumetric threats, specifically varied Distributed Denial of Service (DDoS) forms, ACTIS introduces 25 dynamically derived engineered attributes:
+- **Flag Decompilation (`tcp_flag_syn`):** Isolating specific bit-level activations heavily correlative to DoS floods.
+- **Asymmetry Factors (`byte_asymmetry`):** Calculating inbound/outbound disparities.
+- **Throughput Metrics:** Applying a $\log(\text{DST\_TO\_SRC\_TP})$ function to amplify persistent high-throughput variance.
 
-## B. Trust-Aware Proximal Federated Learning (FedProx)
-In federated edge topologies, devices range wildly from constrained factory IoT gateways to high-compute core infrastructure. Thus, the feature distributions natively inherit harsh non-Independent and Identically Distributed (non-IID) qualities [26]. Attempting to use a standard `FedAvg` across heavily imbalanced clients leads to catastrophic parameter drift. 
-To counteract localized drift, ACTIS utilizes `FedProx` [36], inherently deploying an additional proximal regularization term $\mu = 0.01$ to strictly penalize nodes updating their parameters too distantly from the global anchor $W_g$.
+## B. Algorithm and Federated Orchestration
+To stabilize non-IID client drift across unconstrained IoT gateways, ACTIS relies on a highly regulated execution schema bridging Local Zero-Day Detection, Agentic RAG Generation, and Trust-Aware FedProx Parameter Synchronization.
 
-Building directly on Tri-LLM's loss-driven monitoring scheme, ACTIS introduces dynamic Trust-Aware Client Selection. Assuming client $i$'s empirical alignment loss is $L_i$, the client trust factor $\tau_i$ is evaluated as:
-$\tau_i = \frac{1}{L_i + \epsilon}$
-A normalization filter determines an active contribution mask. Consequently, during global synchronization (orchestrated over 5 primary convergence rounds with 4 simulated clients: A, B, C, D), ACTIS automatically scales client gradients to mathematically stabilize malicious or wildly variant edge nodes.
+**Algorithm 1: ACTIS Trust-Aware FedProx with PII-Sanitization**
+```text
+REQUIRE: Edge Nodes N, Protocol Autoencoders AE_p, Global MLP W_g
+FOR each Node i in N in parallel:
+    X_i = Extract_Features(Raw Traffic)
+    IF MSE(AE_p(X_i)) > θ_anomaly:
+        S_i = PII_Scrubber(X_i)
+        Alert_Intel = Agentic_RAG(S_i)
+    END IF
+    
+    W_i = Local_Train(W_g, X_i, μ)
+    W_i_noisy = W_i + GaussianNoise(0, σ²S²)
+    Send (W_i_noisy, L_i) to Aggregator
+END FOR
 
-## C. The Agentic Privacy Stack: PII Sanitization + Differential Privacy
-Central to ACTIS's core objective is robust multi-org intelligence collaboration completely devoid of legal or identity data leakage. We instantiate a strict, two-stage privacy defense.
+Aggregator computes trust factor: τ_i = 1 / (L_i + ε)
+W_g = Σ [ (τ_i / Σ τ_j) * W_i_noisy ]
+```
 
-**1. Deterministic PII Stripping:** The vast majority of IDSs fail to operate securely because reporting relies heavily on localized log inspection. In ACTIS, whenever anomalous traffic flags the local anomaly detector, the telemetry triggers an Agentic LLM process optimized explicitly for PII extraction. The LLM translates raw rows into sanitized Natural Language (NL). Using targeted prompts, the language agent scrubs IP addresses, sensitive hostnames, and domain data—transmuting "192.168.1.10 contacted anomalous server 203.0.113.1" into "Internal host communicated with an external IP flagged for high outbound throughput".
-**2. Parameter-Level Differential Privacy:** Once localized Deep Learning Multilayer Perceptrons (MLPs) optimize their weights on local data, the raw gradient differentials are not immediately exported to the central aggregator. ACTIS implements an explicit Local Differential Privacy (LDP) [19], mathematically bounds sensitivity $S$, and introduces a Gaussian noise mechanism to obfuscate membership inference attacks before transmission:
-$W_{i}^{\text{noisy}} = W_i + \mathcal{N}(0, \sigma^2 S^2)$
+## C. Mathematical Formalism for Zero-Day Discovery
+ACTIS employs deep Autoencoders partitioned structurally by transport protocols (TCP, UDP, ICMP) to discover zero-day anomalies mathematically, circumventing static classification lists entirely.
 
-## D. Agentic Retrieval-Augmented Generation (RAG) System
-ACTIS’s centralized query system natively incorporates an intelligent RAG orchestrator interacting with ChromaDB. Drawing inspiration directly from both ReGAIN and CyberRAG, the knowledge architecture divides threat information into distinct vector namespaces (telemetry, heuristics, attack signatures). 
-When assessing threat semantics, the pipeline utilizes a **bi-encoder + cross-encoder reranking** algorithm [2]. Following an initial approximate nearest neighbor search via the bi-encoder, the cross-encoder (powered by `ms-marco-MiniLM`) scores contextual (Query, Candidate) pairs directly, discarding loosely related noise. Notably, ACTIS institutes an explicit threshold abstention logic (score < 0.30), coercing the agent to halt generation rather than hallucinate threat causality. Combining the refined retrieval output with deterministic LLM reasoning enables ACTIS to automatically correlate zero-day variants directly onto known historical CVE and MITRE frameworks.
+The protocol-specific autoencoder minimizes the structural reconstruction error utilizing Mean Squared Error (MSE):
+$$ \mathcal{L}_{AE}(X_i) = \frac{1}{d} \sum_{j=1}^{d} \left(x_{i,j} - \hat{x}_{i,j}\right)^2 $$
 
-## E. Protocol-Specific Autoencoders for Zero-Day Verification
-ACTIS abandons naive deep-learning multi-class classifiers when searching for zero-days. Zero-day threats commonly masquerade as benign background signals but deviate fundamentally in structural protocol execution. To identify variants, ACTIS independently channels network records into distinct models strictly defined by transport protocol (TCP, UDP, ICMP).
-Rather than labeling threats, each protocol subset trains a decoupled Deep Autoencoder to continually reconstruct expected benign sequences. By calculating the protocol-calibrated Mean Squared Error (MSE), ACTIS defines localized anomaly borders (typically at the 99th percentile of benign reconstruction loss). Spikes bypassing the MSE trigger the RAG orchestration sequence, classifying an event as an unprecedented zero-day instance without requiring static signature evaluation.
+An active cyber vulnerability is intrinsically triggered if the input heavily distorts structural sequence parameters, triggering the constraint:
+$$ \mathcal{L}_{AE}(X_i) > \theta_p $$
+
+Where $\theta_p$ defines the mathematically derived 99th percentile of the purely localized benign structural formulation for a specific protocol $p \in \{\text{TCP, UDP, ICMP}\}$.
+
+## D. The Agentic Privacy Stack
+Central to ACTIS's core objective is robust multi-org intelligence collaboration completely devoid of legal or identity data leakage.
+### 1. Deterministic PII Stripping
+Whenever anomalous traffic mathematically trips the $\theta_p$ condition, the telemetry triggers an Agentic LLM process optimized explicitly for PII extraction, isolating target vectors away from human-identifiable origin nodes.
+### 2. Parameter-Level Differential Privacy
+Once localized Deep Learning Multilayer Perceptrons (MLPs) optimize their weights on local data, the raw gradient differentials are explicitly obscured by mathematical Local Differential Privacy (LDP) before execution via Algorithm 1.
