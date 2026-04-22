@@ -1,341 +1,179 @@
-# ACTIS — Step-by-Step Commands
+# ACTIS — Complete Commands Reference
 
-## 1. Setup
+> All commands are run from the project root: `cd /path/to/MCE442P`
+
+---
+
+## Phase 0 — Setup & Dependencies
 
 ```bash
 # Install all dependencies
 python3 -m pip install -r requirements.txt
 
-# Install additional packages (if not already installed)
-python3 -m pip install chromadb sentence-transformers google-generativeai
-```
+# Install enhancement packages (BERTScore + cross-encoder reranking)
+python3 -m pip install bert-score sentence-transformers
 
-```bash
-# (Optional) Set Gemini API key for LLM-powered agents
+# (Optional) Set Gemini API key for LLM-enhanced summaries
 echo 'GEMINI_API_KEY=your_key_here' > .env
-```
 
----
-
-## 2. Download Datasets
-
-```bash
+# Download both datasets (~3 GB)
 bash scripts/download_dataset.sh
 ```
 
-This downloads **NF-CSE-CIC-IDS2018-v2** and **NF-BoT-IoT-v2** (~3 GB total) into `data/raw/`.
-
 ---
 
-## 3. Verify Data Pipeline
+## Phase 1 — Data Pipeline Validation
 
 ```bash
-python3 -c "
-from src.data.loader import FedIntelDataLoader
-loader = FedIntelDataLoader()
-data = loader.load_and_partition()
-for cid in ['A','B','C']:
-    print(f'Company {cid}: {len(data[cid][\"data\"]):,} rows')
-"
+# Verify 4-node data loading (A, B = IDS2018; C, D = BoT-IoT)
+python3 scripts/validate/data_pipeline.py
+
+# Verify feature engineering (41 → 66 features)
+python3 scripts/validate/feature_engineering.py
 ```
 
 ---
 
-## 4. Test Local IDS Model (Standalone)
+## Phase 2 — Local IDS (No Federation)
 
 ```bash
-python3 -c "
-import warnings; warnings.filterwarnings('ignore')
-from src.data.loader import FedIntelDataLoader
-from src.data.preprocessor import Preprocessor
-from src.local_node.ids_model import IDSModel
-from src.local_node.ids_trainer import IDSTrainer
-
-loader = FedIntelDataLoader()
-data = loader.load_and_partition()
-
-for cid in ['A','C']:
-    p = Preprocessor()
-    X_tr, X_te, y_tr, y_te = p.prepare(data[cid], max_samples=20000)
-    model = IDSModel(input_dim=41, num_classes=p.num_classes)
-    trainer = IDSTrainer(model=model)
-    trainer.train(X_tr, y_tr, epochs=10)
-    m = trainer.evaluate(X_te, y_te)
-    print(f'Company {cid}: Acc={m[\"accuracy\"]:.4f}, F1={m[\"f1\"]:.4f}')
-"
+# Train & evaluate standalone IDS per node
+python3 scripts/validate/local_ids.py
 ```
 
 ---
 
-## 5. Run Federated Learning (10 Rounds)
+## Phase 3 — Federated Learning (4 Nodes)
 
 ```bash
-python3 -c "
-import warnings; warnings.filterwarnings('ignore')
-from src.server.fl_simulation import FLSimulation
-sim = FLSimulation(max_samples=20000)
-results = sim.run(num_rounds=10)
-for cid, r in results['final_eval'].items():
-    print(f'Company {cid}: Acc={r[\"accuracy\"]:.4f}, F1={r[\"f1\"]:.4f}')
-"
+# 5-round FL training
+python3 scripts/validate/federated_learning.py --rounds 5
+
+# 10-round FL training (full)
+python3 scripts/validate/federated_learning.py --rounds 10 --samples 20000
 ```
 
 ---
 
-## 6. Test Privacy Engine (PII Stripping + DP)
+## Phase 4 — Privacy Validation
 
 ```bash
-python3 -c "
-import warnings; warnings.filterwarnings('ignore')
-from src.local_node.node import PrivacyNode
-
-node = PrivacyNode(company_id='A')
-test_flow = {'PROTOCOL': 6, 'L4_SRC_PORT': 12345, 'L4_DST_PORT': 80,
-             'IN_BYTES': 500000, 'OUT_BYTES': 200, 'IN_PKTS': 1000,
-             'OUT_PKTS': 5, 'FLOW_DURATION_MILLISECONDS': 100, 'TCP_FLAGS': 2}
-result = node.process_flow(test_flow, 'ddos')
-print('Shared:', bool(result))
-node.print_summary()
-"
+# PII sanitization + Differential Privacy noise verification
+python3 scripts/validate/privacy.py
 ```
 
 ---
 
-## 7. Test Global RAG + Immunity
+## Phase 5 — Zero-Day Detection
 
 ```bash
-python3 -c "
-import warnings; warnings.filterwarnings('ignore')
-import shutil
-from src.server.global_kb import GlobalKnowledgeBase
-from src.server.aggregator import Aggregator
-from src.server.rag_engine import RAGEngine
-from src.server.immunity import ImmunityEngine
-
-kb = GlobalKnowledgeBase(persist_dir='/tmp/fedintel_kb')
-kb.populate_mitre()
-agg = Aggregator(kb)
-
-# Simulate threat from Company A
-agg.ingest({'analysis': {
-    'attack_type': 'ddos', 'attack_description': 'SYN flood on port 80',
-    'mitre_technique_id': 'T1498', 'mitre_tactic': 'Impact',
-    'severity': 'HIGH', 'company_id': 'A',
-    'recommended_defense': 'Rate limit SYN packets',
-}})
-
-# Company B queries RAG and gets immunity rules
-rag = RAGEngine(kb)
-results = rag.find_similar_attacks('ddos', 'B')
-print(f'Cross-org intel for B: {len(results)} threats from other companies')
-
-immunity = ImmunityEngine(rag)
-rule = immunity.generate_rules('ddos', 'B')
-print(f'Firewall rule: {rule[\"rule\"][:60]}...')
-
-shutil.rmtree('/tmp/fedintel_kb', ignore_errors=True)
-"
+# DDoS zero-day detection benchmark on BoT-IoT
+python3 scripts/validate/zeroday_ddos.py
 ```
 
 ---
 
-## 8. Run Full End-to-End Simulation
+## Phase 6 — RAG & Threat Intelligence
 
 ```bash
-python3 -m src.cli simulate --rounds 5 --samples 10000 --threats 20
-```
+# RAG with cross-encoder reranking + abstention + cross-org immunity
+python3 scripts/validate/rag_engine.py
 
-This runs **all 4 stages** in sequence:
-
-1. Federated Learning (5 rounds)
-2. Agentic Privacy Engine (20 threat flows per company)
-3. Global Federated RAG (ingest + MITRE mapping)
-4. Immunity Engine (firewall rules for all companies)
-
-Outputs a Rich dashboard with all metrics.
-
----
-
-## 9. Run Full Evaluation Suite
-
-```bash
-python3 -m src.evaluation.evaluate
-```
-
-This runs **4 evaluations** (~13 min):
-
-1. Local-only vs Federated detection accuracy
-2. PII leakage rate + DP privacy-utility tradeoff
-3. Zero-day detection + threat report quality
-4. Ablation study (5 configurations)
-
-Results saved to `results/evaluation_results.json`.
-
----
-
-## 10. MITRE ATT&CK Mapping Table
-
-```bash
+# MITRE ATT&CK mapping table
 python3 -m src.data.mitre_mapper
 ```
 
 ---
 
-## Individual CLI Commands
+## Phase 7 — Report Quality
 
 ```bash
-# Download data
-python3 -m src.cli data download
-
-# Train FL model
-python3 -m src.cli fl train --rounds 10 --samples 20000
-
-# Query the threat knowledge base
-python3 -m src.cli query "DDoS attacks on web servers"
-
-# Evaluate detection accuracy
-python3 -m src.cli eval detection
-
-# Evaluate PII leakage
-python3 -m src.cli eval pii --samples 500
-
-# Run all evaluations
-python3 -m src.cli eval all
+# BERTScore evaluation + threat summarizer test
+python3 scripts/validate/report_quality.py
 ```
 
 ---
 
-## Quick Demo (3 minutes)
-
-For a fast demo showing the complete pipeline:
+## Phase 8 — ReGAIN Benchmark Replication
 
 ```bash
+# TCP SYN Flood + ICMP/UDP Flood (vs ReGAIN paper)
+python3 scripts/validate/regain_benchmark.py
+```
+
+---
+
+## Phase 9 — Full Evaluation Suite
+
+```bash
+# Run all 4 evaluations (~13 min)
+python3 -m src.evaluation.evaluate
+```
+
+Runs: (1) Local vs federated accuracy, (2) PII leakage + DP tradeoff, (3) Zero-day + BERTScore, (4) Ablation study. Results saved to `results/evaluation_results.json`.
+
+---
+
+## Phase 10 — End-to-End Simulation
+
+```bash
+# Full pipeline (5 rounds, 10K samples, 20 threat flows)
+python3 -m src.cli simulate --rounds 5 --samples 10000 --threats 20
+
+# Quick demo (3 minutes)
 python3 -m src.cli simulate --rounds 3 --samples 5000 --threats 10
 ```
 
 ---
 
-## 11. Install Additional Dependencies (High-Impact Fixes)
+## Phase 11 — Live Deployment
 
 ```bash
-# BERTScore for report quality evaluation
-python3 -m pip install bert-score
-
-# Cross-encoder reranking for RAG (optional — fallback to bi-encoder if missing)
-python3 -m pip install sentence-transformers
-```
-
----
-
-## 12. Test Feature Engineering (58-dim temporal features)
-
-```bash
-python3 -c "
-import numpy as np, sys; sys.path.insert(0, '.')
-from src.data.feature_engineer import FeatureEngineer
-fe = FeatureEngineer()
-X = np.random.rand(100, 41).astype('float32')
-X_enh = fe.transform(X)
-print(f'Input: {X.shape}  →  Output: {X_enh.shape}')
-print('Features added:', fe.feature_names())
-"
-```
-
----
-
-## 13. Test Per-Protocol Zero-Day Detector
-
-```bash
-python3 -c "
-import warnings; warnings.filterwarnings('ignore')
-import numpy as np, sys; sys.path.insert(0, '.')
-from src.data.feature_engineer import FeatureEngineer
-from src.local_node.ids_model import IDSModel
-from src.local_node.zeroday_detector import ZeroDayDetector
-
-fe = FeatureEngineer()
-X_raw = np.random.rand(500, 41).astype('float32')
-X_raw[:150, 2] = 6    # TCP
-X_raw[150:300, 2] = 17 # UDP  (DDoS uses this)
-X_raw[300:400, 2] = 1  # ICMP
-X_enh = fe.transform(X_raw)
-y = np.zeros(500, dtype=int); y[50:] = 1
-
-model = IDSModel(input_dim=X_enh.shape[1], num_classes=9)
-det = ZeroDayDetector(model, percentile=90, alpha=0.3)
-det.fit_thresholds(X_enh, y)
-print('Autoencoders:', [k for k,v in det._autoencoders.items() if v])
-print('Threshold:', round(det.threshold, 4))
-"
-```
-
----
-
-## 14. Test BERTScore Report Quality
-
-```bash
-python3 -c "
-import warnings; warnings.filterwarnings('ignore')
-import sys; sys.path.insert(0, '.')
-from src.evaluation.evaluate import _compute_bertscore
-
-preds = ['DDoS attack detected with high-volume UDP flood targeting availability.']
-refs  = ['Distributed Denial of Service with volumetric flood. MITRE T1498.']
-bs = _compute_bertscore(preds, refs)
-print(f'BERTScore  P={bs[\"precision\"]:.4f}  R={bs[\"recall\"]:.4f}  F1={bs[\"f1\"]:.4f}')
-"
-```
-
----
-
-## 15. Live Monitor (Real-Time Deployment)
-
-```bash
-# Process a CSV of network flows and print alerts
+# Process a CSV of network flows
 python3 -m src.live_monitor --input flows.csv --company A
 
-# Process CSV and save alerts to JSONL file
-python3 -m src.live_monitor --input flows.csv --output alerts.jsonl
+# Save alerts to JSONL
+python3 -m src.live_monitor --input flows.csv --output alerts.jsonl --company A
 
-# Tail a growing live capture CSV (5-second poll)
+# Tail a growing log file (continuous monitoring)
 python3 -m src.live_monitor --tail /var/log/netflows.csv --interval 5
 
-# Use with a pre-trained saved model
-python3 -m src.live_monitor --input flows.csv --model models/ids_A.pt --company A
-
-# Pipe directly from nfdump
+# Pipe from nfdump
 nfdump -r capture.nfcapd -o csv | python3 -m src.live_monitor --stdin
+
+# With pre-trained model
+python3 -m src.live_monitor --input flows.csv --model models/ids_A.pt --company A
 ```
 
-The live monitor runs the full pipeline per flow:
-
-1. **Feature engineering** (41 → 58 dims)
-2. **IDS classification** (IDSModel)
-3. **Zero-day detection** (per-protocol ZeroDayDetector)
-4. **PII validation** (blocks sensitive data)
-5. **Threat summarization** (Gemini LLM for HIGH/CRITICAL, template fallback)
+Pipeline per flow: Feature engineering (41→66) → IDS classification → Zero-day detection → PII validation → Threat summarization.
 
 ---
 
-## 16. RAG with Cross-Encoder Reranking + Abstention
+## CLI Quick Reference
 
 ```bash
-python3 -c "
-import warnings; warnings.filterwarnings('ignore')
-import shutil, sys; sys.path.insert(0, '.')
-from src.server.global_kb import GlobalKnowledgeBase
-from src.server.rag_engine import RAGEngine
-
-kb = GlobalKnowledgeBase(persist_dir='/tmp/actis_kb_test')
-kb.populate_mitre()
-
-# RAG with abstention (returns abstained=True if similarity too low)
-rag = RAGEngine(kb, abstention_threshold=0.30, use_reranker=True)
-results = rag.query('DDoS amplification attack using UDP')
-print(f'Abstained: {results[\"abstained\"]}')
-print(f'Best score: {results[\"best_score\"]:.3f}')
-print(f'Threats found: {len(results[\"threats\"])}')
-
-shutil.rmtree('/tmp/actis_kb_test', ignore_errors=True)
-"
+python3 -m src.cli data download                # Download datasets
+python3 -m src.cli fl train --rounds 10          # Train FL model
+python3 -m src.cli query "DDoS attacks"          # Query threat KB
+python3 -m src.cli eval detection                # Evaluate accuracy
+python3 -m src.cli eval pii --samples 500        # Evaluate PII leakage
+python3 -m src.cli eval all                      # Run all evaluations
 ```
+
+---
+
+## Expected Results Summary
+
+| Validation | Metric | Expected |
+| --- | --- | --- |
+| FL 4-Node (5 rounds) | Co. A Accuracy | ~76% |
+| | Co. B Accuracy | ~71% |
+| | Co. C Accuracy (BoT-IoT) | ~95% |
+| | Co. D Accuracy (BoT-IoT) | ~95% |
+| Zero-Day DDoS (BoT-IoT) | Detection Rate (α=0.3, p90) | **99.5%** |
+| TCP SYN Flood (vs ReGAIN) | Accuracy | **100%** (vs 98.82%) |
+| ICMP/UDP Flood (vs ReGAIN) | Accuracy | **99.5%** (vs 95.95%) |
+| BERTScore (vs CyberRAG) | F1 | 0.919 (vs 0.94) |
+| PII Leakage | Rate | **0%** |
+| Feature Engineering | Dimensions | 41 → **66** |
+| RAG Abstention | Hallucination prevention | ✅ threshold=0.30 |
