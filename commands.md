@@ -4,20 +4,14 @@
 
 ---
 
-## Phase 0 — Setup & Dependencies
+## Phase 0 — Setup
 
 ```bash
-# Install all dependencies
-python3 -m pip install -r requirements.txt
-
-# Install enhancement packages (BERTScore + cross-encoder reranking)
-python3 -m pip install bert-score sentence-transformers
+# Install dependencies + download datasets (~3 GB)
+bash scripts/setup.sh
 
 # (Optional) Set Gemini API key for LLM-enhanced summaries
 echo 'GEMINI_API_KEY=your_key_here' > .env
-
-# Download both datasets (~3 GB)
-bash scripts/download_dataset.sh
 ```
 
 ---
@@ -78,9 +72,6 @@ python3 scripts/validate/zeroday_ddos.py
 ```bash
 # RAG with cross-encoder reranking + abstention + cross-org immunity
 python3 scripts/validate/rag_engine.py
-
-# MITRE ATT&CK mapping table
-python3 -m src.data.mitre_mapper
 ```
 
 ---
@@ -106,15 +97,41 @@ python3 scripts/validate/regain_benchmark.py
 ## Phase 9 — Full Evaluation Suite
 
 ```bash
-# Run all 4 evaluations (~13 min)
 python3 -m src.evaluation.evaluate
 ```
 
-Runs: (1) Local vs federated accuracy, (2) PII leakage + DP tradeoff, (3) Zero-day + BERTScore, (4) Ablation study. Results saved to `results/evaluation_results.json`.
+---
+
+## Phase 10 — Agentic Analyzer + PII Validator
+
+```bash
+# Agent Analyzer (LLM/deterministic) + Agent Sanitizer + PII Validator
+python3 scripts/validate/agents_privacy.py
+```
 
 ---
 
-## Phase 10 — End-to-End Simulation
+## Phase 11 — MITRE ATT&CK Mapper
+
+```bash
+python3 scripts/validate/mitre_mapper.py
+```
+
+---
+
+## Phase 12 — Live Monitor Demo
+
+```bash
+# Synthetic flow demo
+python3 scripts/validate/live_monitor.py
+
+# Or with real CSV
+python3 -m src.live_monitor --input flows.csv --company A
+```
+
+---
+
+## End-to-End Simulation
 
 ```bash
 # Full pipeline (5 rounds, 10K samples, 20 threat flows)
@@ -123,29 +140,6 @@ python3 -m src.cli simulate --rounds 5 --samples 10000 --threats 20
 # Quick demo (3 minutes)
 python3 -m src.cli simulate --rounds 3 --samples 5000 --threats 10
 ```
-
----
-
-## Phase 11 — Live Deployment
-
-```bash
-# Process a CSV of network flows
-python3 -m src.live_monitor --input flows.csv --company A
-
-# Save alerts to JSONL
-python3 -m src.live_monitor --input flows.csv --output alerts.jsonl --company A
-
-# Tail a growing log file (continuous monitoring)
-python3 -m src.live_monitor --tail /var/log/netflows.csv --interval 5
-
-# Pipe from nfdump
-nfdump -r capture.nfcapd -o csv | python3 -m src.live_monitor --stdin
-
-# With pre-trained model
-python3 -m src.live_monitor --input flows.csv --model models/ids_A.pt --company A
-```
-
-Pipeline per flow: Feature engineering (41→66) → IDS classification → Zero-day detection → PII validation → Threat summarization.
 
 ---
 

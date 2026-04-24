@@ -28,7 +28,7 @@ sentence-transformers>=2.2.0
 pyarrow>=14.0.0
 
 # MITRE ATT&CK
-mitreattack-stix-library>=2.0.0
+mitreattack-python>=2.0.0
 
 # Evaluation
 bert-score>=0.3.13
