@@ -41,11 +41,3 @@ python-dotenv
 
 # Testing
 pytest
-
-# Colab Compatibility Constraints
-cryptography<44
-antlr4-python3-runtime==4.9.*
-opentelemetry-api<1.39.0
-opentelemetry-sdk<1.39.0
-opentelemetry-proto<1.39.0
-opentelemetry-exporter-otlp-proto-common<1.39.0
