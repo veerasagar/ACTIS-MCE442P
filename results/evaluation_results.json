@@ -1,0 +1,1442 @@
+{
+  "detection": {
+    "local": {
+      "A": {
+        "accuracy": 0.99325,
+        "precision": 0.9878164388766687,
+        "recall": 0.99325,
+        "f1": 0.9905147453212356,
+        "confusion_matrix": [
+          [
+            3502,
+            0,
+            0,
+            0,
+            2,
+            0,
+            0
+          ],
+          [
+            0,
+            31,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            26,
+            0,
+            1,
+            0,
+            0
+          ],
+          [
+            1,
+            0,
+            0,
+            307,
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            107,
+            0,
+            0
+          ],
+          [
+            21,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0
+          ]
+        ]
+      },
+      "B": {
+        "accuracy": 0.99,
+        "precision": 0.9837218298343946,
+        "recall": 0.99,
+        "f1": 0.9867019026338123,
+        "confusion_matrix": [
+          [
+            3518,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            25,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            24,
+            0,
+            0,
+            0
+          ],
+          [
+            4,
+            0,
+            0,
+            297,
+            0,
+            0
+          ],
+          [
+            2,
+            0,
+            7,
+            0,
+            96,
+            0
+          ],
+          [
+            27,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        ]
+      },
+      "C": {
+        "accuracy": 0.98925,
+        "precision": 0.9892096835156741,
+        "recall": 0.98925,
+        "f1": 0.9892093980284069,
+        "confusion_matrix": [
+          [
+            11,
+            0,
+            0,
+            3
+          ],
+          [
+            0,
+            1914,
+            13,
+            0
+          ],
+          [
+            0,
+            14,
+            1764,
+            1
+          ],
+          [
+            2,
+            0,
+            10,
+            268
+          ]
+        ]
+      }
+    },
+    "federated": {
+      "A": {
+        "accuracy": 0.519,
+        "precision": 0.8994201208460373,
+        "recall": 0.519,
+        "f1": 0.5989033139659163,
+        "confusion_matrix": [
+          [
+            1632,
+            0,
+            0,
+            1139,
+            434,
+            0,
+            299,
+            0
+          ],
+          [
+            0,
+            31,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            27,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            309,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            104,
+            0,
+            3,
+            0
+          ],
+          [
+            11,
+            0,
+            0,
+            8,
+            2,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0
+          ]
+        ],
+        "classification_report": "                precision    recall  f1-score   support\n\n        benign       0.99      0.47      0.63      3504\n        botnet       1.00      1.00      1.00        31\n   brute_force       0.00      0.00      0.00        27\n          ddos       0.21      1.00      0.35       309\n           dos       0.19      0.97      0.32       107\n  infiltration       0.00      0.00      0.00        21\nreconnaissance       0.00      0.00      0.00         0\n    web_attack       0.00      0.00      0.00         1\n\n      accuracy                           0.52      4000\n     macro avg       0.30      0.43      0.29      4000\n  weighted avg       0.90      0.52      0.60      4000\n"
+      },
+      "B": {
+        "accuracy": 0.58,
+        "precision": 0.9015784874385726,
+        "recall": 0.58,
+        "f1": 0.6584811365722929,
+        "confusion_matrix": [
+          [
+            1895,
+            1,
+            0,
+            876,
+            446,
+            0,
+            300
+          ],
+          [
+            0,
+            25,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            24
+          ],
+          [
+            0,
+            0,
+            0,
+            301,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            99,
+            0,
+            6
+          ],
+          [
+            17,
+            0,
+            0,
+            6,
+            3,
+            0,
+            1
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        ],
+        "classification_report": "                precision    recall  f1-score   support\n\n        benign       0.99      0.54      0.70      3518\n        botnet       0.96      1.00      0.98        25\n   brute_force       0.00      0.00      0.00        24\n          ddos       0.25      1.00      0.41       301\n           dos       0.18      0.94      0.30       105\n  infiltration       0.00      0.00      0.00        27\nreconnaissance       0.00      0.00      0.00         0\n\n      accuracy                           0.58      4000\n     macro avg       0.34      0.50      0.34      4000\n  weighted avg       0.90      0.58      0.66      4000\n"
+      },
+      "C": {
+        "accuracy": 0.98925,
+        "precision": 0.9892750646524171,
+        "recall": 0.98925,
+        "f1": 0.9892432385220353,
+        "confusion_matrix": [
+          [
+            13,
+            0,
+            0,
+            1
+          ],
+          [
+            0,
+            1914,
+            13,
+            0
+          ],
+          [
+            0,
+            14,
+            1762,
+            3
+          ],
+          [
+            2,
+            0,
+            10,
+            268
+          ]
+        ],
+        "classification_report": "                precision    recall  f1-score   support\n\n        benign       0.87      0.93      0.90        14\n          ddos       0.99      0.99      0.99      1927\n           dos       0.99      0.99      0.99      1779\nreconnaissance       0.99      0.96      0.97       280\n\n      accuracy                           0.99      4000\n     macro avg       0.96      0.97      0.96      4000\n  weighted avg       0.99      0.99      0.99      4000\n"
+      }
+    },
+    "fl_loss_curve": [
+      0.4238611174151301,
+      0.35400599022954704,
+      0.3322942785769701,
+      0.28659528393298384,
+      0.2514648478124291,
+      0.23985800007544458,
+      0.22430667334608734,
+      0.24450845301430674,
+      0.29364727912098165,
+      0.4313116831537336
+    ]
+  },
+  "pii_dp": {
+    "pii": {
+      "A": {
+        "company_id": "A",
+        "processed": 200,
+        "shared": 200,
+        "blocked": 0,
+        "share_rate": 100.0,
+        "pii_leakage_rate": 0.0,
+        "avg_latency_ms": 237.94,
+        "sanitizer_stats": {
+          "total": 200,
+          "pii_found": 0,
+          "pii_removed": 0
+        },
+        "dp_stats": {
+          "embeddings_processed": 0,
+          "avg_noise_norm": 0.0,
+          "sigma": 0.1
+        },
+        "dp_params": {
+          "epsilon": 1.0,
+          "delta": 1e-05,
+          "sigma": 0.1,
+          "sensitivity": 2.0,
+          "guarantee": "(\u03b5=1.0, \u03b4=1e-05)-DP"
+        }
+      },
+      "B": {
+        "company_id": "B",
+        "processed": 200,
+        "shared": 200,
+        "blocked": 0,
+        "share_rate": 100.0,
+        "pii_leakage_rate": 0.0,
+        "avg_latency_ms": 224.1,
+        "sanitizer_stats": {
+          "total": 200,
+          "pii_found": 0,
+          "pii_removed": 0
+        },
+        "dp_stats": {
+          "embeddings_processed": 0,
+          "avg_noise_norm": 0.0,
+          "sigma": 0.1
+        },
+        "dp_params": {
+          "epsilon": 1.0,
+          "delta": 1e-05,
+          "sigma": 0.1,
+          "sensitivity": 2.0,
+          "guarantee": "(\u03b5=1.0, \u03b4=1e-05)-DP"
+        }
+      },
+      "C": {
+        "company_id": "C",
+        "processed": 200,
+        "shared": 200,
+        "blocked": 0,
+        "share_rate": 100.0,
+        "pii_leakage_rate": 0.0,
+        "avg_latency_ms": 284.56,
+        "sanitizer_stats": {
+          "total": 200,
+          "pii_found": 0,
+          "pii_removed": 0
+        },
+        "dp_stats": {
+          "embeddings_processed": 0,
+          "avg_noise_norm": 0.0,
+          "sigma": 0.1
+        },
+        "dp_params": {
+          "epsilon": 1.0,
+          "delta": 1e-05,
+          "sigma": 0.1,
+          "sensitivity": 2.0,
+          "guarantee": "(\u03b5=1.0, \u03b4=1e-05)-DP"
+        }
+      },
+      "overall_leakage_rate": 0.0,
+      "total_processed": 600
+    },
+    "dp": [
+      {
+        "epsilon": 0.1,
+        "sigma": 0.1,
+        "avg_cosine_sim": 0.451359,
+        "std_cosine_sim": 0.03760891408961444,
+        "avg_l2": 1.948138,
+        "avg_mse": 0.00989405270665884
+      },
+      {
+        "epsilon": 0.5,
+        "sigma": 0.1,
+        "avg_cosine_sim": 0.4556190000000001,
+        "std_cosine_sim": 0.03678033902780125,
+        "avg_l2": 1.9593820000000002,
+        "avg_mse": 0.01001170982606709
+      },
+      {
+        "epsilon": 1.0,
+        "sigma": 0.1,
+        "avg_cosine_sim": 0.45254799999999995,
+        "std_cosine_sim": 0.03801921219594114,
+        "avg_l2": 1.9614429999999998,
+        "avg_mse": 0.010029329303652048
+      },
+      {
+        "epsilon": 2.0,
+        "sigma": 0.1,
+        "avg_cosine_sim": 0.45337999999999995,
+        "std_cosine_sim": 0.037500207999423156,
+        "avg_l2": 1.9668939999999997,
+        "avg_mse": 0.01008949926123023
+      },
+      {
+        "epsilon": 5.0,
+        "sigma": 0.1,
+        "avg_cosine_sim": 0.445927,
+        "std_cosine_sim": 0.03949685014023271,
+        "avg_l2": 1.9683939999999998,
+        "avg_mse": 0.01010495975613594
+      },
+      {
+        "epsilon": 10.0,
+        "sigma": 0.1,
+        "avg_cosine_sim": 0.45267700000000005,
+        "std_cosine_sim": 0.03863547813862279,
+        "avg_l2": 1.9471079999999998,
+        "avg_mse": 0.009883446488529443
+      }
+    ]
+  },
+  "zeroday_quality": {
+    "zeroday": {
+      "botnet": {
+        "detection_rate": 0.0,
+        "false_alarm_rate": 0.10153691106072057,
+        "detected": 0,
+        "total": 31
+      },
+      "dos": {
+        "detection_rate": 0.9252336448598131,
+        "false_alarm_rate": 0.09863858207038274,
+        "detected": 99,
+        "total": 107
+      },
+      "brute_force": {
+        "detection_rate": 0.25925925925925924,
+        "false_alarm_rate": 0.09463881198087087,
+        "detected": 7,
+        "total": 27
+      }
+    },
+    "report_quality": [
+      {
+        "attack_type": "ddos",
+        "has_summary": true,
+        "has_mitre_mapping": true,
+        "has_severity": true,
+        "summary_length": 192,
+        "pii_clean": true,
+        "quality_score": 1.0
+      },
+      {
+        "attack_type": "dos",
+        "has_summary": true,
+        "has_mitre_mapping": true,
+        "has_severity": true,
+        "summary_length": 146,
+        "pii_clean": true,
+        "quality_score": 1.0
+      },
+      {
+        "attack_type": "brute_force",
+        "has_summary": true,
+        "has_mitre_mapping": true,
+        "has_severity": true,
+        "summary_length": 119,
+        "pii_clean": true,
+        "quality_score": 1.0
+      },
+      {
+        "attack_type": "web_attack",
+        "has_summary": true,
+        "has_mitre_mapping": true,
+        "has_severity": true,
+        "summary_length": 166,
+        "pii_clean": true,
+        "quality_score": 1.0
+      },
+      {
+        "attack_type": "botnet",
+        "has_summary": true,
+        "has_mitre_mapping": true,
+        "has_severity": true,
+        "summary_length": 146,
+        "pii_clean": true,
+        "quality_score": 1.0
+      }
+    ],
+    "bertscore": {
+      "precision": 0.867832362651825,
+      "recall": 0.8742648959159851,
+      "f1": 0.8710262179374695
+    }
+  },
+  "ablation": {
+    "local_only": {
+      "A": {
+        "accuracy": 0.99375,
+        "precision": 0.9883172487160675,
+        "recall": 0.99375,
+        "f1": 0.991016931132248,
+        "confusion_matrix": [
+          [
+            3503,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            31,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            27,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            1,
+            0,
+            0,
+            308,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            1,
+            0,
+            106,
+            0,
+            0
+          ],
+          [
+            21,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0
+          ]
+        ]
+      },
+      "B": {
+        "accuracy": 0.99,
+        "precision": 0.9839313314890238,
+        "recall": 0.99,
+        "f1": 0.9867659119819752,
+        "confusion_matrix": [
+          [
+            3518,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            25,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            24,
+            0,
+            0,
+            0
+          ],
+          [
+            4,
+            0,
+            0,
+            297,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            9,
+            0,
+            96,
+            0
+          ],
+          [
+            27,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        ]
+      },
+      "C": {
+        "accuracy": 0.988,
+        "precision": 0.9879654459256587,
+        "recall": 0.988,
+        "f1": 0.9879349089459127,
+        "confusion_matrix": [
+          [
+            11,
+            0,
+            0,
+            3
+          ],
+          [
+            0,
+            1914,
+            13,
+            0
+          ],
+          [
+            0,
+            14,
+            1764,
+            1
+          ],
+          [
+            2,
+            0,
+            15,
+            263
+          ]
+        ]
+      }
+    },
+    "fl_no_fedprox": {
+      "A": {
+        "accuracy": 0.94575,
+        "precision": 0.9716978735887865,
+        "recall": 0.94575,
+        "f1": 0.9564951394892275,
+        "confusion_matrix": [
+          [
+            3307,
+            0,
+            6,
+            77,
+            18,
+            3,
+            93,
+            0
+          ],
+          [
+            0,
+            31,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            27,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            308,
+            1,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            107,
+            0,
+            0,
+            0
+          ],
+          [
+            16,
+            0,
+            0,
+            1,
+            1,
+            3,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0
+          ]
+        ],
+        "classification_report": "                precision    recall  f1-score   support\n\n        benign       1.00      0.94      0.97      3504\n        botnet       1.00      1.00      1.00        31\n   brute_force       0.82      1.00      0.90        27\n          ddos       0.80      1.00      0.89       309\n           dos       0.84      1.00      0.91       107\n  infiltration       0.50      0.14      0.22        21\nreconnaissance       0.00      0.00      0.00         0\n    web_attack       0.00      0.00      0.00         1\n\n      accuracy                           0.95      4000\n     macro avg       0.62      0.64      0.61      4000\n  weighted avg       0.97      0.95      0.96      4000\n"
+      },
+      "B": {
+        "accuracy": 0.975,
+        "precision": 0.9777698192145836,
+        "recall": 0.975,
+        "f1": 0.9751755231308896,
+        "confusion_matrix": [
+          [
+            3437,
+            0,
+            2,
+            67,
+            5,
+            4,
+            3
+          ],
+          [
+            0,
+            25,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            24,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            301,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            1,
+            0,
+            104,
+            0,
+            0
+          ],
+          [
+            18,
+            0,
+            0,
+            0,
+            0,
+            9,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        ],
+        "classification_report": "                precision    recall  f1-score   support\n\n        benign       0.99      0.98      0.99      3518\n        botnet       1.00      1.00      1.00        25\n   brute_force       0.89      1.00      0.94        24\n          ddos       0.82      1.00      0.90       301\n           dos       0.95      0.99      0.97       105\n  infiltration       0.69      0.33      0.45        27\nreconnaissance       0.00      0.00      0.00         0\n\n      accuracy                           0.97      4000\n     macro avg       0.76      0.76      0.75      4000\n  weighted avg       0.98      0.97      0.98      4000\n"
+      },
+      "C": {
+        "accuracy": 0.98675,
+        "precision": 0.9874455977883296,
+        "recall": 0.98675,
+        "f1": 0.9869591495488177,
+        "confusion_matrix": [
+          [
+            12,
+            0,
+            1,
+            1
+          ],
+          [
+            0,
+            1914,
+            13,
+            0
+          ],
+          [
+            0,
+            14,
+            1760,
+            5
+          ],
+          [
+            9,
+            0,
+            10,
+            261
+          ]
+        ],
+        "classification_report": "                precision    recall  f1-score   support\n\n        benign       0.57      0.86      0.69        14\n          ddos       0.99      0.99      0.99      1927\n           dos       0.99      0.99      0.99      1779\nreconnaissance       0.98      0.93      0.95       280\n\n      accuracy                           0.99      4000\n     macro avg       0.88      0.94      0.91      4000\n  weighted avg       0.99      0.99      0.99      4000\n"
+      },
+      "D": {
+        "accuracy": 0.9875,
+        "precision": 0.9878669276154433,
+        "recall": 0.9875,
+        "f1": 0.9876152021802053,
+        "confusion_matrix": [
+          [
+            15,
+            0,
+            0,
+            1
+          ],
+          [
+            1,
+            1926,
+            7,
+            0
+          ],
+          [
+            0,
+            14,
+            1743,
+            14
+          ],
+          [
+            5,
+            0,
+            8,
+            266
+          ]
+        ],
+        "classification_report": "                precision    recall  f1-score   support\n\n        benign       0.71      0.94      0.81        16\n          ddos       0.99      1.00      0.99      1934\n           dos       0.99      0.98      0.99      1771\nreconnaissance       0.95      0.95      0.95       279\n\n      accuracy                           0.99      4000\n     macro avg       0.91      0.97      0.94      4000\n  weighted avg       0.99      0.99      0.99      4000\n"
+      }
+    },
+    "fl_fedprox": {
+      "A": {
+        "accuracy": 0.93475,
+        "precision": 0.9607207222965656,
+        "recall": 0.93475,
+        "f1": 0.9444298023247889,
+        "confusion_matrix": [
+          [
+            3266,
+            0,
+            1,
+            144,
+            14,
+            0,
+            79,
+            0
+          ],
+          [
+            0,
+            31,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            27,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            308,
+            1,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            107,
+            0,
+            0,
+            0
+          ],
+          [
+            20,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0
+          ]
+        ],
+        "classification_report": "                precision    recall  f1-score   support\n\n        benign       0.99      0.93      0.96      3504\n        botnet       1.00      1.00      1.00        31\n   brute_force       0.96      1.00      0.98        27\n          ddos       0.68      1.00      0.81       309\n           dos       0.87      1.00      0.93       107\n  infiltration       0.00      0.00      0.00        21\nreconnaissance       0.00      0.00      0.00         0\n    web_attack       0.00      0.00      0.00         1\n\n      accuracy                           0.93      4000\n     macro avg       0.56      0.62      0.59      4000\n  weighted avg       0.96      0.93      0.94      4000\n"
+      },
+      "B": {
+        "accuracy": 0.97125,
+        "precision": 0.9810052320506982,
+        "recall": 0.97125,
+        "f1": 0.9726707649028141,
+        "confusion_matrix": [
+          [
+            3430,
+            0,
+            2,
+            35,
+            18,
+            0,
+            33
+          ],
+          [
+            0,
+            25,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            24,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            301,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            1,
+            0,
+            104,
+            0,
+            0
+          ],
+          [
+            26,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        ],
+        "classification_report": "                precision    recall  f1-score   support\n\n        benign       0.99      0.97      0.98      3518\n        botnet       1.00      1.00      1.00        25\n   brute_force       0.89      1.00      0.94        24\n          ddos       0.90      1.00      0.95       301\n           dos       0.85      0.99      0.92       105\n  infiltration       1.00      0.04      0.07        27\nreconnaissance       0.00      0.00      0.00         0\n\n      accuracy                           0.97      4000\n     macro avg       0.80      0.71      0.69      4000\n  weighted avg       0.98      0.97      0.97      4000\n"
+      },
+      "C": {
+        "accuracy": 0.986,
+        "precision": 0.9875637931285608,
+        "recall": 0.986,
+        "f1": 0.9864813089703561,
+        "confusion_matrix": [
+          [
+            12,
+            0,
+            1,
+            1
+          ],
+          [
+            0,
+            1914,
+            13,
+            0
+          ],
+          [
+            0,
+            14,
+            1762,
+            3
+          ],
+          [
+            14,
+            0,
+            10,
+            256
+          ]
+        ],
+        "classification_report": "                precision    recall  f1-score   support\n\n        benign       0.46      0.86      0.60        14\n          ddos       0.99      0.99      0.99      1927\n           dos       0.99      0.99      0.99      1779\nreconnaissance       0.98      0.91      0.95       280\n\n      accuracy                           0.99      4000\n     macro avg       0.86      0.94      0.88      4000\n  weighted avg       0.99      0.99      0.99      4000\n"
+      },
+      "D": {
+        "accuracy": 0.98825,
+        "precision": 0.9886835829539941,
+        "recall": 0.98825,
+        "f1": 0.9883791746315492,
+        "confusion_matrix": [
+          [
+            15,
+            0,
+            0,
+            1
+          ],
+          [
+            0,
+            1926,
+            8,
+            0
+          ],
+          [
+            1,
+            14,
+            1747,
+            9
+          ],
+          [
+            6,
+            0,
+            8,
+            265
+          ]
+        ],
+        "classification_report": "                precision    recall  f1-score   support\n\n        benign       0.68      0.94      0.79        16\n          ddos       0.99      1.00      0.99      1934\n           dos       0.99      0.99      0.99      1771\nreconnaissance       0.96      0.95      0.96       279\n\n      accuracy                           0.99      4000\n     macro avg       0.91      0.97      0.93      4000\n  weighted avg       0.99      0.99      0.99      4000\n"
+      }
+    },
+    "fl_privacy": {
+      "pii_leakage": "0.0%",
+      "dp_guarantee": "(\u03b5=1.0, \u03b4=1e-05)-DP",
+      "note": "Privacy adds no accuracy overhead \u2014 applied to summaries, not model weights"
+    },
+    "full_system": {
+      "detection": {
+        "A": {
+          "accuracy": 0.93475,
+          "precision": 0.9607207222965656,
+          "recall": 0.93475,
+          "f1": 0.9444298023247889,
+          "confusion_matrix": [
+            [
+              3266,
+              0,
+              1,
+              144,
+              14,
+              0,
+              79,
+              0
+            ],
+            [
+              0,
+              31,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              27,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              308,
+              1,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              107,
+              0,
+              0,
+              0
+            ],
+            [
+              20,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          "classification_report": "                precision    recall  f1-score   support\n\n        benign       0.99      0.93      0.96      3504\n        botnet       1.00      1.00      1.00        31\n   brute_force       0.96      1.00      0.98        27\n          ddos       0.68      1.00      0.81       309\n           dos       0.87      1.00      0.93       107\n  infiltration       0.00      0.00      0.00        21\nreconnaissance       0.00      0.00      0.00         0\n    web_attack       0.00      0.00      0.00         1\n\n      accuracy                           0.93      4000\n     macro avg       0.56      0.62      0.59      4000\n  weighted avg       0.96      0.93      0.94      4000\n"
+        },
+        "B": {
+          "accuracy": 0.97125,
+          "precision": 0.9810052320506982,
+          "recall": 0.97125,
+          "f1": 0.9726707649028141,
+          "confusion_matrix": [
+            [
+              3430,
+              0,
+              2,
+              35,
+              18,
+              0,
+              33
+            ],
+            [
+              0,
+              25,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              24,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              301,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              1,
+              0,
+              104,
+              0,
+              0
+            ],
+            [
+              26,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          "classification_report": "                precision    recall  f1-score   support\n\n        benign       0.99      0.97      0.98      3518\n        botnet       1.00      1.00      1.00        25\n   brute_force       0.89      1.00      0.94        24\n          ddos       0.90      1.00      0.95       301\n           dos       0.85      0.99      0.92       105\n  infiltration       1.00      0.04      0.07        27\nreconnaissance       0.00      0.00      0.00         0\n\n      accuracy                           0.97      4000\n     macro avg       0.80      0.71      0.69      4000\n  weighted avg       0.98      0.97      0.97      4000\n"
+        },
+        "C": {
+          "accuracy": 0.986,
+          "precision": 0.9875637931285608,
+          "recall": 0.986,
+          "f1": 0.9864813089703561,
+          "confusion_matrix": [
+            [
+              12,
+              0,
+              1,
+              1
+            ],
+            [
+              0,
+              1914,
+              13,
+              0
+            ],
+            [
+              0,
+              14,
+              1762,
+              3
+            ],
+            [
+              14,
+              0,
+              10,
+              256
+            ]
+          ],
+          "classification_report": "                precision    recall  f1-score   support\n\n        benign       0.46      0.86      0.60        14\n          ddos       0.99      0.99      0.99      1927\n           dos       0.99      0.99      0.99      1779\nreconnaissance       0.98      0.91      0.95       280\n\n      accuracy                           0.99      4000\n     macro avg       0.86      0.94      0.88      4000\n  weighted avg       0.99      0.99      0.99      4000\n"
+        },
+        "D": {
+          "accuracy": 0.98825,
+          "precision": 0.9886835829539941,
+          "recall": 0.98825,
+          "f1": 0.9883791746315492,
+          "confusion_matrix": [
+            [
+              15,
+              0,
+              0,
+              1
+            ],
+            [
+              0,
+              1926,
+              8,
+              0
+            ],
+            [
+              1,
+              14,
+              1747,
+              9
+            ],
+            [
+              6,
+              0,
+              8,
+              265
+            ]
+          ],
+          "classification_report": "                precision    recall  f1-score   support\n\n        benign       0.68      0.94      0.79        16\n          ddos       0.99      1.00      0.99      1934\n           dos       0.99      0.99      0.99      1771\nreconnaissance       0.96      0.95      0.96       279\n\n      accuracy                           0.99      4000\n     macro avg       0.91      0.97      0.93      4000\n  weighted avg       0.99      0.99      0.99      4000\n"
+        }
+      },
+      "pii_leakage": "0.0%",
+      "rag_queries_work": true,
+      "immunity_rules_generated": true,
+      "cross_org_intelligence": true
+    }
+  }
+}
