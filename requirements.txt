@@ -2,7 +2,7 @@
 # =====================
 
 # CLI + Terminal UI
-typer[all]
+typer
 rich
 
 # LLM + Agents
