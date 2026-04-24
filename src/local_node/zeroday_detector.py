@@ -114,6 +114,11 @@ class ZeroDayDetector:
         self.threshold = threshold
         self.percentile = percentile
         self.max_entropy = None
+        # Detect device from model parameters
+        try:
+            self.device = next(model.parameters()).device
+        except StopIteration:
+            self.device = torch.device("cpu")
         # Per-protocol autoencoders
         self._autoencoders: Dict[str, Optional[nn.Module]] = {
             "tcp": None, "udp": None, "icmp": None, "other": None
@@ -127,9 +132,9 @@ class ZeroDayDetector:
         if len(X) < 32:  # Not enough samples
             return
         input_dim = X.shape[1]
-        ae = _Autoencoder(input_dim)
+        ae = _Autoencoder(input_dim).to(self.device)
         optimizer = torch.optim.Adam(ae.parameters(), lr=lr)
-        dataset = TensorDataset(torch.tensor(X, dtype=torch.float32))
+        dataset = TensorDataset(torch.tensor(X, dtype=torch.float32, device=self.device))
         loader = DataLoader(dataset, batch_size=min(256, len(X)), shuffle=True)
         ae.train()
         for _ in range(epochs):
@@ -165,10 +170,10 @@ class ZeroDayDetector:
             ae = self._autoencoders.get(tag) or self._autoencoders.get("other")
             if ae is None:
                 continue
-            X_sub = torch.tensor(X[mask], dtype=torch.float32)
+            X_sub = torch.tensor(X[mask], dtype=torch.float32, device=self.device)
             with torch.no_grad():
                 recon = ae(X_sub)
-                errs = ((X_sub - recon) ** 2).mean(dim=1).numpy()
+                errs = ((X_sub - recon) ** 2).mean(dim=1).cpu().numpy()
             # Normalize by this protocol's scale
             scale = self._recon_scales.get(tag, self._recon_scales.get("other", 1.0))
             errors[mask] = errs / max(scale, 1e-8)
@@ -179,13 +184,13 @@ class ZeroDayDetector:
         """Compute confidence-based ZDS from the IDS classifier."""
         self.model.eval()
         with torch.no_grad():
-            X_t = torch.tensor(X, dtype=torch.float32)
+            X_t = torch.tensor(X, dtype=torch.float32, device=self.device)
             batch_size = 1024
             all_probs = []
             for i in range(0, len(X_t), batch_size):
                 logits = self.model(X_t[i:i + batch_size])
                 probs = F.softmax(logits, dim=1)
-                all_probs.append(probs.numpy())
+                all_probs.append(probs.cpu().numpy())
             probs = np.concatenate(all_probs, axis=0)
 
         max_conf = np.max(probs, axis=1)
@@ -234,10 +239,10 @@ class ZeroDayDetector:
                 # Compute scale from training data for this protocol
                 ae = self._autoencoders[tag]
                 if ae:
-                    X_sub = torch.tensor(X_train[mask], dtype=torch.float32)
+                    X_sub = torch.tensor(X_train[mask], dtype=torch.float32, device=self.device)
                     with torch.no_grad():
                         recon = ae(X_sub)
-                        errs = ((X_sub - recon) ** 2).mean(dim=1).numpy()
+                        errs = ((X_sub - recon) ** 2).mean(dim=1).cpu().numpy()
                     self._recon_scales[tag] = float(np.percentile(errs, 99))
 
         # Compute ZDS on full training data
@@ -264,8 +269,8 @@ class ZeroDayDetector:
 
         self.model.eval()
         with torch.no_grad():
-            X_t = torch.tensor(X, dtype=torch.float32)
-            preds = self.model(X_t).argmax(dim=1).numpy()
+            X_t = torch.tensor(X, dtype=torch.float32, device=self.device)
+            preds = self.model(X_t).argmax(dim=1).cpu().numpy()
 
         result = {
             "zds_scores": zds,

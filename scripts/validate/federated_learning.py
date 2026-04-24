@@ -24,7 +24,7 @@ for cid in sorted(results["final_eval"].keys()):
         f"  {cid}     {ds:9s}  {r['accuracy']*100:6.2f}%    "
         f"{r['f1']:.4f}   {r['precision']:.4f}     {r['recall']:.4f}"
     )
-first_loss = results["round_metrics"][0]["avg_loss"]
-last_loss = results["round_metrics"][-1]["avg_loss"]
+first_loss = results["round_history"][0]["avg_loss"]
+last_loss = results["round_history"][-1]["avg_loss"]
 print()
 print(f"  Loss: {first_loss:.4f} → {last_loss:.4f}  (Δ = {first_loss - last_loss:.4f})")

@@ -18,6 +18,8 @@ from pathlib import Path
 from typing import Dict, Optional
 from rich.console import Console
 from rich.table import Table
+import pyarrow as pa
+import pyarrow.dataset as ds
 
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -79,8 +81,8 @@ class FedIntelDataLoader:
 
     # ─── Loading ─────────────────────────────────────────────────────────
 
-    def _load_parquet(self, directory: Path, name: str) -> pd.DataFrame:
-        """Load a Parquet file from a directory."""
+    def _load_parquet(self, directory: Path, name: str, max_rows: Optional[int] = None) -> pd.DataFrame:
+        """Load a Parquet file from a directory, streaming to avoid OOM."""
         parquet_files = sorted(directory.glob("**/*.parquet"))
         if not parquet_files:
             console.print(f"[red]✗ No Parquet files found in {directory}[/red]")
@@ -88,27 +90,44 @@ class FedIntelDataLoader:
             raise FileNotFoundError(f"No Parquet files in {directory}")
 
         console.print(f"[bold blue]Loading {name}...[/bold blue]")
-        # Use first parquet file (each dataset has one main file)
-        df = pd.read_parquet(parquet_files[0])
+        file_path = parquet_files[0]
+        
+        if max_rows is None:
+            df = pd.read_parquet(file_path)
+        else:
+            dataset = ds.dataset(file_path)
+            batches = []
+            total_rows = 0
+            # Read in chunks of 100,000 to avoid memory spikes
+            for batch in dataset.to_batches(batch_size=100000):
+                batches.append(batch)
+                total_rows += batch.num_rows
+                if total_rows >= max_rows:
+                    break
+            table = pa.Table.from_batches(batches)
+            df = table.to_pandas()
+            if len(df) > max_rows:
+                df = df.head(max_rows)
+
         console.print(
             f"[green]  ✓ {len(df):,} rows × {len(df.columns)} columns "
-            f"({parquet_files[0].name})[/green]"
+            f"({file_path.name})[/green]"
         )
         return df
 
-    def load_ids2018(self) -> pd.DataFrame:
+    def load_ids2018(self, max_rows: Optional[int] = None) -> pd.DataFrame:
         """Load NF-CSE-CIC-IDS2018-v2 dataset."""
         if self._ids2018_df is None:
             self._ids2018_df = self._load_parquet(
-                self.ids2018_dir, "NF-CSE-CIC-IDS2018-v2"
+                self.ids2018_dir, "NF-CSE-CIC-IDS2018-v2", max_rows
             )
         return self._ids2018_df
 
-    def load_botiot(self) -> pd.DataFrame:
+    def load_botiot(self, max_rows: Optional[int] = None) -> pd.DataFrame:
         """Load NF-BoT-IoT-v2 dataset."""
         if self._botiot_df is None:
             self._botiot_df = self._load_parquet(
-                self.botiot_dir, "NF-BoT-IoT-v2"
+                self.botiot_dir, "NF-BoT-IoT-v2", max_rows
             )
         return self._botiot_df
 
@@ -147,7 +166,7 @@ class FedIntelDataLoader:
 
     # ─── Main Entry Point ───────────────────────────────────────────────
 
-    def load_and_partition(self) -> Dict[str, Dict]:
+    def load_and_partition(self, max_rows: int = 1000000) -> Dict[str, Dict]:
         """
         Load both datasets, normalize labels, and partition across companies.
 
@@ -161,9 +180,9 @@ class FedIntelDataLoader:
         """
         console.print("\n[bold]═══ ACTIS Data Loader (4 Nodes) ═══[/bold]\n")
 
-        # Load
-        ids2018_df = self.load_ids2018()
-        botiot_df = self.load_botiot()
+        # Load (memory-safe)
+        ids2018_df = self.load_ids2018(max_rows=max_rows)
+        botiot_df = self.load_botiot(max_rows=max_rows)
 
         # Normalize labels
         ids2018_df = self._normalize_labels(ids2018_df)
