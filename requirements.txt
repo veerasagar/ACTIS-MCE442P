@@ -2,50 +2,42 @@
 # =====================
 
 # CLI + Terminal UI
-typer[all]>=0.9.0
-rich>=13.0.0
+typer[all]
+rich
 
 # LLM + Agents
-langchain>=0.2.0
-langchain-google-genai>=1.0.0
-langchain-groq>=0.1.0
-google-generativeai>=0.5.0
+langchain
+langchain-google-genai
+langchain-groq
+google-generativeai
 
 # Federated Learning
-flwr[simulation]>=1.7.0
+flwr[simulation]
 
 # ML / Deep Learning
-torch>=2.1.0
-scikit-learn>=1.3.0
-numpy>=1.24.0
-pandas>=2.0.0
+torch
+scikit-learn
+numpy
+pandas
 
 # Vector DB + Embeddings
-chromadb>=0.4.0
-sentence-transformers>=2.2.0
+chromadb
+sentence-transformers
 
 # Data Processing
-pyarrow>=14.0.0
+pyarrow
 
 # MITRE ATT&CK
-mitreattack-python>=2.0.0
+mitreattack-python
 
 # Evaluation
-bert-score>=0.3.13
+bert-score
 
 # Server + IPC
-pyzmq>=25.0.0
+pyzmq
 
 # Environment
-python-dotenv>=1.0.0
+python-dotenv
 
 # Testing
-pytest>=7.0.0
-
-# Colab Compatibility Constraints
-cryptography<44
-antlr4-python3-runtime==4.9.*
-opentelemetry-api<1.39.0
-opentelemetry-sdk<1.39.0
-opentelemetry-proto<1.39.0
-opentelemetry-exporter-otlp-proto-common<1.39.0
+pytest
