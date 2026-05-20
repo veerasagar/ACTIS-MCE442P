@@ -1,7 +1,7 @@
 # Project Citations & References
 
 1. D. Zhang, Y. Yang, et al., "Tri-LLM Cooperative Federated Zero-Shot Intrusion Detection with Semantic Disagreement and Trust-Aware Aggregation," *arXiv:2602.00219*, Jan 2026.
-2. Anonymous, "ReGAIN: Retrieval-Grounded AI Framework for Network Traffic Analysis," *arXiv:2512.22223*, Dec 2025.
+2. Shajarian, Shaghayegh, et al. "ReGAIN: Retrieval-Grounded AI Framework for Network Traffic Analysis." 2026 International Conference on Computing, Networking and Communications (ICNC). IEEE, 2026
 3. H. Yuan, H. Zheng, et al., "CyberRAG: An Agentic RAG Cyber Attack Classification and Reporting Tool," *arXiv:2507.02498*, Sep 2025.
 4. I. Tariq et al., "Federated Learning based Network Intrusion Detection using Unbalanced IoT Data," *IEEE Access*, vol. 12, pp. 10452-10464, 2024.
 5. S. Z. Wu, M. K. O. Lee et al., "Large Language Models in Cybersecurity: A Systematic Review," *IEEE Access*, vol. 12, pp. 5042-5060, 2024.
