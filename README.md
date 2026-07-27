@@ -1,4 +1,4 @@
-# ACTIS — Adaptive Cyber Threat Intelligence System
+# ACTIS — Agentic Collaborative Threat Intelligence System via Trust-Aware Federated Learning
 
 ![Python](https://img.shields.io/badge/Python-3.9+-blue)
 ![PyTorch](https://img.shields.io/badge/PyTorch-2.1+-orange)
