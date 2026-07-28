@@ -1,4 +1,4 @@
-# ACTIS — Agentic Collaborative Threat Intelligence System via Trust-Aware Federated Learning
+# SYNAPSE - SYNTHETIC NETWORK-TRAFFIC AGENT PIPELINE FOR FEDERATED EDGE SECURITY
 
 ![Python](https://img.shields.io/badge/Python-3.9+-blue)
 ![PyTorch](https://img.shields.io/badge/PyTorch-2.1+-orange)
@@ -10,7 +10,7 @@ A privacy-preserving federated intrusion detection system that combines **federa
 
 ## Overview
 
-ACTIS enables multiple organizations to collaboratively train a shared intrusion detection model **without sharing raw network data**. Each organization retains full control of its traffic — only sanitized threat intelligence and DP-noised model weights leave the local node.
+SYNAPSE enables multiple organizations to collaboratively train a shared intrusion detection model **without sharing raw network data**. Each organization retains full control of its traffic — only sanitized threat intelligence and DP-noised model weights leave the local node.
 
 The system detects **9 attack classes** across enterprise and IoT networks, generates MITRE ATT&CK-mapped threat reports, and deploys as a real-time monitoring pipeline.
 
@@ -87,7 +87,7 @@ nfdump -r capture.nfcapd -o csv | python3 -m src.live_monitor --stdin
 
 ### vs Baseline Papers
 
-| Metric | ReGAIN | Tri-LLM | CyberRAG | **ACTIS** |
+| Metric | ReGAIN | Tri-LLM | CyberRAG | **SYNAPSE** |
 | :--- | :---: | :---: | :---: | :---: |
 | TCP SYN Flood Acc | 98.82% | — | — | **100.00%** |
 | ICMP/UDP Flood Acc | 95.95% | — | — | **99.45%** |
