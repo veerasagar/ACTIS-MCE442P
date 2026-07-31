@@ -1,4 +1,4 @@
-# ACTIS — Complete Commands Reference
+# SYNAPSE — Complete Commands Reference
 
 > All commands are run from the project root: `cd /path/to/MCE442P`
 
